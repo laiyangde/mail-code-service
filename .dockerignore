@@ -1,0 +1,16 @@
+# 构建上下文排除（加速构建、避免泄露本地状态）
+node_modules
+web/dist
+dist
+data
+.env
+*.log
+logs
+.git
+.gitignore
+.idea
+.vscode
+.DS_Store
+docs
+test
+scripts

@@ -1,0 +1,48 @@
+{
+  "name": "mail-code-service",
+  "version": "0.1.0",
+  "private": true,
+  "description": "高校邮箱别名接码服务：多账号编排、按订单访问控制、租约调度、超时自动释放，提供 Web + HTTP API 两种取码入口",
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "dev": "node --watch src/index.js",
+    "start": "node src/index.js",
+    "migrate": "node src/store/migrate.js",
+    "demo:swpu": "node scripts/demo-swpu.js",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:race": "vitest run test/race",
+    "web:dev": "vite --config web/vite.config.js",
+    "web:build": "vite build --config web/vite.config.js",
+    "lint": "eslint . && prettier --check .",
+    "format": "prettier --write ."
+  },
+  "dependencies": {
+    "@fastify/rate-limit": "^11.0.0",
+    "@fastify/static": "^8.2.0",
+    "axios": "^1.18.1",
+    "better-sqlite3": "^12.11.1",
+    "cloakbrowser": "^0.3.32",
+    "dotenv": "^17.4.2",
+    "fastify": "^5.8.5",
+    "fastify-sse-v2": "^4.2.2",
+    "imapflow": "^1.4.3",
+    "mailparser": "^3.9.12",
+    "pino": "^10.3.1",
+    "playwright-core": "^1.61.1",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@vitejs/plugin-react": "^5.1.1",
+    "eslint": "^10.5.0",
+    "globals": "^17.7.0",
+    "prettier": "^3.8.4",
+    "vite": "^7.2.6",
+    "vitest": "^4.1.9"
+  }
+}
