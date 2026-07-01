@@ -1,5 +1,5 @@
 /**
- * 取码主页面（M7 / FR-6）：解析 `/r/:code`，按租约状态在单页内切换视图。
+ * 取码主页面（M7 / FR-6）：解析 `/r/:code`，按租约状态在单卡内切换视图。antd 容器。
  *
  * 阶段（phase）：
  * - idle      初始，仅预填唯一码，点「申请邮箱」才占用（FR-6.1）
@@ -9,10 +9,12 @@
  * - expired   超时/取消，可重新获取
  * - used      回看历史收码（不新建租约）
  * - error     业务错误（按 errCode 文案）
+ *
+ * 仅展示层迁移到 antd；状态机、useLeaseStream/useCountdown、api 解析逻辑保持不变。
  */
 import { useCallback, useState } from 'react';
-import { activate, renewLease, cancelLease } from './api.js';
-import { ApiError } from './api.js';
+import { Alert, Card, Typography } from 'antd';
+import { activate, renewLease, cancelLease, confirmSent, ApiError } from './api.js';
 import { useLeaseStream } from './hooks/useLeaseStream.js';
 import ApplyCard from './components/ApplyCard.jsx';
 import ActiveCard from './components/ActiveCard.jsx';
@@ -20,6 +22,8 @@ import MailView from './components/MailView.jsx';
 import ResultsView from './components/ResultsView.jsx';
 import ExpiredCard from './components/ExpiredCard.jsx';
 import ErrorCard from './components/ErrorCard.jsx';
+
+const { Title, Paragraph } = Typography;
 
 /** 从 `/r/:code` 路径解析唯一码 */
 function parseCode() {
@@ -95,6 +99,19 @@ export default function App() {
     setPhase('expired');
   }, [lease]);
 
+  /** 确认「我已发送邮件」→ 开始收码（FR-6） */
+  const onConfirm = useCallback(async () => {
+    if (!lease) return;
+    setBusy(true);
+    try {
+      setLease(await confirmSent(lease.leaseId));
+    } catch (err) {
+      handleError(err);
+    } finally {
+      setBusy(false);
+    }
+  }, [lease, handleError]);
+
   /** SSE 终态分流 */
   const onStreamDone = useCallback((done) => {
     setLease(done);
@@ -115,23 +132,27 @@ export default function App() {
 
   return (
     <div className="app">
-      <div className="card">
-        <div className="brand">
-          <span className="dot" />
+      <Card className="mcs-card">
+        <div className="mcs-brand">
+          <span className="mcs-dot" />
           邮箱接码
         </div>
         {renderBody()}
-      </div>
+      </Card>
     </div>
   );
 
   function renderBody() {
     if (!code) {
       return (
-        <div>
-          <h1 className="title">链接无效</h1>
-          <p className="subtitle">请使用包含唯一码的完整链接进入（形如 /r/你的唯一码）。</p>
-        </div>
+        <>
+          <Title level={4} style={{ marginTop: 0 }}>
+            链接无效
+          </Title>
+          <Paragraph type="secondary">
+            请使用包含唯一码的完整链接进入（形如 /r/你的唯一码）。
+          </Paragraph>
+        </>
       );
     }
     switch (phase) {
@@ -139,22 +160,15 @@ export default function App() {
       case 'activating':
         return <ApplyCard code={code} loading={busy} onApply={onApply} />;
       case 'active':
-        return <ActiveCard lease={lease} onCancel={onCancel} />;
+        return (
+          <ActiveCard lease={lease} onCancel={onCancel} onConfirm={onConfirm} confirming={busy} />
+        );
       case 'received':
         return (
-          <div>
-            <div
-              className="banner"
-              style={{
-                background: 'rgba(54,201,138,.12)',
-                border: '1px solid var(--ok)',
-                color: '#9be9c5',
-              }}
-            >
-              已收到邮件！
-            </div>
+          <>
+            <Alert type="success" showIcon message="已收到邮件！" style={{ marginBottom: 14 }} />
             <MailView mail={lease.mail} code={lease.code ?? null} />
-          </div>
+          </>
         );
       case 'expired':
         return (

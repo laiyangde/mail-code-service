@@ -51,7 +51,7 @@ export async function buildServer(services, deps = {}) {
     return {
       ok: true,
       pool,
-      imap: { total: pool.total, healthy: pool.free + pool.leased },
+      imap: { active: services.hub.bindings.size }, // 按需连：当前活跃 IMAP 连接数 = 活跃绑定数
       queue: services.queue.size,
       sse: sseHub.size,
     };
@@ -105,7 +105,7 @@ async function start() {
     db,
     providerFactory,
     leaseConfig: {
-      acquireTimeoutSec: config.lease.acquireTimeoutSec,
+      queueTimeoutSec: config.lease.queueTimeoutSec,
       retentionSec: config.lease.retentionSec,
     },
   });
@@ -118,8 +118,7 @@ async function start() {
       logger.warn({ accountId: acc.id, err: err.message }, '加载会话失败（首次别名请求时重登）');
     }
   }
-  // 常驻 IMAP（FR-1.5，失败置 unhealthy，不阻塞启动）
-  await services.hub.start();
+  // 按需连模式：IMAP 不在启动时常驻，改由 LeaseManager 绑定租约时按需建连（见 ReceiverHub.bindLease）
 
   // 事件桥：LeaseManager 事件 → SSE + Webhook 共用同一事件源
   const sseHub = new SseHub();
@@ -129,7 +128,7 @@ async function start() {
     webhook.onEvent(type, leaseId, payload);
   });
 
-  // 重启恢复（C-6）：须在 hub.start()（IMAP 就绪）与事件桥之后，重建在途租约运行态
+  // 重启恢复（C-6）：须在事件桥之后，按需重连 IMAP 重建在途租约运行态
   try {
     await services.manager.recoverActiveLeases();
   } catch (err) {

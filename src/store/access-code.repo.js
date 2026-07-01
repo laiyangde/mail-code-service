@@ -10,7 +10,9 @@ export function createAccessCodeRepo(db) {
      VALUES (?, ?, ?, ?, ?, ?, ?)`,
   );
   const getStmt = db.prepare(`SELECT * FROM access_code WHERE code = ?`);
+  const listAllStmt = db.prepare(`SELECT * FROM access_code`);
   const listByStatusStmt = db.prepare(`SELECT * FROM access_code WHERE status = ?`);
+  const listByPrefixStmt = db.prepare(`SELECT * FROM access_code WHERE prefix = ?`);
   const listExpirableStmt = db.prepare(
     `SELECT * FROM access_code WHERE status = 'used' AND retain_until IS NOT NULL AND retain_until < ?`,
   );
@@ -42,6 +44,14 @@ export function createAccessCodeRepo(db) {
     },
     listByStatus(status) {
       return listByStatusStmt.all(status).map(mapRow);
+    },
+    /** 列出全部唯一码（admin 查询缺省用） */
+    listAll() {
+      return listAllStmt.all().map(mapRow);
+    },
+    /** 列出某套餐前缀的全部唯一码（admin 按套餐筛选 / 删套餐级联清理用） */
+    listByPrefix(prefix) {
+      return listByPrefixStmt.all(prefix).map(mapRow);
     },
     /** 列出已收码且回看期满（retain_until < now）的码，供 GC（FR-10） */
     listExpirable(now) {

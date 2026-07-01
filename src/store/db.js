@@ -30,11 +30,27 @@ export function openDb(filePath) {
 }
 
 /**
- * 应用 schema.sql（幂等：IF NOT EXISTS 建表 + 护栏索引）。
+ * 应用 schema.sql（幂等：IF NOT EXISTS 建表 + 护栏索引）+ 增量补列。
  * @param {import('better-sqlite3').Database} db
  */
 export function applySchema(db) {
   db.exec(readFileSync(SCHEMA_PATH, 'utf8'));
+  // 增量迁移：旧库补列（CREATE TABLE IF NOT EXISTS 不会给已存在的表加新列）
+  ensureColumn(db, 'lease', 'receiving', 'INTEGER NOT NULL DEFAULT 0');
+}
+
+/**
+ * 幂等补列：表缺某列时 ALTER 添加（SQLite 无 ADD COLUMN IF NOT EXISTS）。
+ * @param {import('better-sqlite3').Database} db
+ * @param {string} table
+ * @param {string} column
+ * @param {string} definition 列定义（类型 + 约束 + 默认值）
+ */
+function ensureColumn(db, table, column, definition) {
+  const cols = db.prepare(`PRAGMA table_info(${table})`).all();
+  if (!cols.some((c) => c.name === column)) {
+    db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`);
+  }
 }
 
 /** @type {import('better-sqlite3').Database | undefined} */

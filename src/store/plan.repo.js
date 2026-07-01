@@ -15,6 +15,7 @@ export function createPlanRepo(db) {
   );
   const getStmt = db.prepare(`SELECT * FROM plan WHERE prefix = ?`);
   const listStmt = db.prepare(`SELECT * FROM plan`);
+  const deleteStmt = db.prepare(`DELETE FROM plan WHERE prefix = ?`);
 
   return {
     upsert(p) {
@@ -37,6 +38,10 @@ export function createPlanRepo(db) {
     },
     list() {
       return listStmt.all().map(mapRow);
+    },
+    /** 物理删除套餐（admin，须先删其关联唯一码以满足外键） */
+    delete(prefix) {
+      return deleteStmt.run(prefix).changes;
     },
   };
 }

@@ -7,8 +7,8 @@
 export function createLeaseRepo(db) {
   const insertStmt = db.prepare(
     `INSERT INTO lease
-       (id, access_code, plan, account_id, alias, status, start_time, expires_at, mail_uid, mail_meta, code, renews, created_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+       (id, access_code, plan, account_id, alias, status, start_time, expires_at, mail_uid, mail_meta, code, renews, receiving, created_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
   );
   const getStmt = db.prepare(`SELECT * FROM lease WHERE id = ?`);
   const activeByAccountStmt = db.prepare(
@@ -23,10 +23,21 @@ export function createLeaseRepo(db) {
   );
   const updateStatusStmt = db.prepare(`UPDATE lease SET status = ? WHERE id = ?`);
   const deleteByCodeStmt = db.prepare(`DELETE FROM lease WHERE access_code = ?`);
+  const deleteByAccountStmt = db.prepare(`DELETE FROM lease WHERE account_id = ?`);
   const countByStatusStmt = db.prepare(`SELECT COUNT(*) AS n FROM lease WHERE status = ?`);
   const markReceivedStmt = db.prepare(
     `UPDATE lease SET status='received', mail_uid=?, mail_meta=?, code=?
        WHERE id=? AND status='active'`,
+  );
+  const pendingByCodeStmt = db.prepare(
+    `SELECT * FROM lease WHERE access_code = ? AND status = 'pending'`,
+  );
+  const promoteStmt = db.prepare(
+    `UPDATE lease SET status='active', account_id=?, alias=?, start_time=?, expires_at=?
+       WHERE id=? AND status='pending'`,
+  );
+  const markReceivingStmt = db.prepare(
+    `UPDATE lease SET receiving=1 WHERE id=? AND status='active'`,
   );
 
   return {
@@ -44,6 +55,7 @@ export function createLeaseRepo(db) {
         l.mailMeta ? JSON.stringify(l.mailMeta) : null,
         l.code ?? null,
         l.renews ?? 0,
+        l.receiving ?? 0,
         l.createdAt,
       );
       return l.id;
@@ -71,6 +83,10 @@ export function createLeaseRepo(db) {
     deleteByCode(accessCode) {
       return deleteByCodeStmt.run(accessCode).changes;
     },
+    /** 物理删除某账号的全部租约（admin 删账号时用；须先删 processed_mail） */
+    deleteByAccount(accountId) {
+      return deleteByAccountStmt.run(accountId).changes;
+    },
     /** 按状态计数（监控 NFR-6） */
     countByStatus(status) {
       return countByStatusStmt.get(status).n;
@@ -83,6 +99,27 @@ export function createLeaseRepo(db) {
         code ?? null,
         id,
       ).changes;
+    },
+    /** 该唯一码当前的 pending 租约（排队中，供同码 activate 复用，INV-1′） */
+    getPendingByCode(accessCode) {
+      return mapRow(pendingByCodeStmt.get(accessCode));
+    },
+    /**
+     * 原子 promote（pending→active）：条件 WHERE status='pending'，返回 changes
+     * （0=该 pending 已被 cancel/超时置终态 → 放弃本次激活，归还预占账号）。
+     */
+    promoteToActive({ id, accountId, alias, startTime, expiresAt }) {
+      return promoteStmt.run(
+        accountId ?? null,
+        alias ?? null,
+        startTime ?? null,
+        expiresAt ?? null,
+        id,
+      ).changes;
+    },
+    /** 用户确认已发送 → 开启收码（置 receiving=1，仅 active 生效，返回 changes） */
+    markReceiving(id) {
+      return markReceivingStmt.run(id).changes;
     },
   };
 }
@@ -103,6 +140,7 @@ function mapRow(row) {
     mailMeta: row.mail_meta ? JSON.parse(row.mail_meta) : null,
     code: row.code,
     renews: row.renews,
+    receiving: row.receiving,
     createdAt: row.created_at,
   };
 }

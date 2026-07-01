@@ -32,11 +32,11 @@ import { LeaseManager } from './lease/lease-manager.js';
 
 /**
  * 装配核心调度栈。账号需已在 DB（由 migrate / admin 录入），本函数为每个**启用**账号
- * 经 `providerFactory` 建 provider 并登记到池（不在此启动 IMAP，留给调用方 `hub.start()`）。
+ * 经 `providerFactory` 建 provider 并登记到池（不在此启动 IMAP；按需连模式下由 ReceiverHub 绑定租约时建连）。
  * @param {object} opts
  * @param {import('better-sqlite3').Database} opts.db 已 applySchema 的连接
  * @param {(account: object) => import('./provider/email-provider.js').EmailProvider} opts.providerFactory
- * @param {{ acquireTimeoutSec?: number, retentionSec?: number }} [opts.leaseConfig] LeaseManager 配置
+ * @param {{ queueTimeoutSec?: number, retentionSec?: number }} [opts.leaseConfig] LeaseManager 配置
  * @returns {Services}
  */
 export function buildServices({ db, providerFactory, leaseConfig = {} }) {
@@ -82,7 +82,7 @@ export function buildServices({ db, providerFactory, leaseConfig = {} }) {
 
 /**
  * 动态为一个账号建 provider 并登记到池（admin 新增账号后免重启生效，FR-8.1）。
- * **仅做同步登记**；常驻 IMAP 启动由调用方按需 `await provider.startReceiver?.()`。
+ * **仅做同步登记**；IMAP 连接由 ReceiverHub 在绑定租约时按需建立（不再常驻）。
  * @param {Services} services
  * @param {object} account email_account 行
  * @returns {import('./provider/email-provider.js').EmailProvider}

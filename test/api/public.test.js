@@ -36,6 +36,18 @@ describe('public 路由', () => {
     expect(d.expiresAt).toBeGreaterThan(0);
   });
 
+  it('池满 → activate 返回 pending + queueAhead', async () => {
+    await activate(h.issueCode('gh-occ')); // 占满唯一账号
+    const code = h.issueCode('gh-q');
+    const res = await activate(code);
+    expect(res.statusCode).toBe(200);
+    const d = res.json().data;
+    expect(d.status).toBe('pending');
+    expect(d.queueAhead).toBe(1); // 1 个账号正被 gh-occ 占用 → 前面 1 人
+    expect(d.enqueuedAt).toBeGreaterThan(0);
+    expect(d.leaseId).toBeTruthy();
+  });
+
   it('同 code 并发/重复 activate → 复用同一活跃租约（单飞，INV-1）', async () => {
     const code = h.issueCode('gh-dup');
     const [a, b] = await Promise.all([activate(code), activate(code)]);
@@ -46,6 +58,7 @@ describe('public 路由', () => {
     const code = h.issueCode('gh-2');
     const r = await activate(code);
     const lease = h.manager.getLease(r.json().data.leaseId);
+    await h.app.inject({ method: 'POST', url: `/api/public/leases/${lease.id}/confirm` });
     h.providers.acc1.emit(h.mailFor(101, lease));
     await h.flush();
     const got = await h.app.inject({ method: 'GET', url: `/api/public/leases/${lease.id}` });
@@ -59,6 +72,7 @@ describe('public 路由', () => {
     const code = h.issueCode('gh-3');
     const r1 = await activate(code);
     const lease = h.manager.getLease(r1.json().data.leaseId);
+    await h.app.inject({ method: 'POST', url: `/api/public/leases/${lease.id}/confirm` });
     h.providers.acc1.emit(h.mailFor(102, lease));
     await h.flush();
     const r2 = await activate(code);
@@ -97,6 +111,7 @@ describe('public 路由', () => {
     const code = h.issueCode('gh-6');
     const r = await activate(code);
     const lease = h.manager.getLease(r.json().data.leaseId);
+    await h.app.inject({ method: 'POST', url: `/api/public/leases/${lease.id}/confirm` });
     h.providers.acc1.emit(h.mailFor(103, lease));
     await h.flush();
     const res = await h.app.inject({ method: 'GET', url: `/api/public/codes/${code}/results` });
@@ -117,6 +132,7 @@ describe('public 路由', () => {
     const code = h.issueCode('gh-sse');
     const r = await activate(code);
     const lease = h.manager.getLease(r.json().data.leaseId);
+    await h.app.inject({ method: 'POST', url: `/api/public/leases/${lease.id}/confirm` });
     const streamP = h.app.inject({
       method: 'GET',
       url: `/api/public/leases/${lease.id}/stream`,

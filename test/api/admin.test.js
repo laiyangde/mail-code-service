@@ -118,4 +118,58 @@ describe('admin 路由', () => {
     });
     expect(act.json().errCode).toBe('CODE_REVOKED');
   });
+
+  it('删除账号 → 从列表移除', async () => {
+    const res = await h.app.inject({
+      method: 'DELETE',
+      url: '/api/admin/accounts/acc1',
+      headers: AUTH,
+    });
+    expect(res.statusCode).toBe(200);
+    const list = await h.app.inject({ method: 'GET', url: '/api/admin/accounts', headers: AUTH });
+    expect(list.json().data.find((a) => a.id === 'acc1')).toBeFalsy();
+  });
+
+  it('删除套餐 → 级联清除该套餐的码', async () => {
+    await h.app.inject({
+      method: 'POST',
+      url: '/api/admin/plans',
+      headers: AUTH,
+      payload: { prefix: 'del', name: 'Del', allowedGroups: ['swpu'] },
+    });
+    await h.app.inject({
+      method: 'POST',
+      url: '/api/admin/codes',
+      headers: AUTH,
+      payload: { prefix: 'del', count: 2 },
+    });
+    const res = await h.app.inject({
+      method: 'DELETE',
+      url: '/api/admin/plans/del',
+      headers: AUTH,
+    });
+    expect(res.statusCode).toBe(200);
+    expect(res.json().data.deletedCodes).toBe(2);
+    const list = await h.app.inject({ method: 'GET', url: '/api/admin/plans', headers: AUTH });
+    expect(list.json().data.find((p) => p.prefix === 'del')).toBeFalsy();
+  });
+
+  it('批量删除唯一码 → 物理清除（再 activate 报 CODE_NOT_FOUND）', async () => {
+    const c1 = h.issueCode('gh-d1');
+    const c2 = h.issueCode('gh-d2');
+    const res = await h.app.inject({
+      method: 'DELETE',
+      url: '/api/admin/codes',
+      headers: AUTH,
+      payload: { codes: [c1, c2] },
+    });
+    expect(res.statusCode).toBe(200);
+    expect(res.json().data.deleted).toBe(2);
+    const act = await h.app.inject({
+      method: 'POST',
+      url: '/api/public/activate',
+      payload: { code: c1 },
+    });
+    expect(act.json().errCode).toBe('CODE_NOT_FOUND');
+  });
 });

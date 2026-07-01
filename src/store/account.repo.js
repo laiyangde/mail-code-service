@@ -26,6 +26,7 @@ export function createAccountRepo(db) {
   const setDisabledStmt = db.prepare(
     `UPDATE email_account SET disabled = ?, updated_at = ? WHERE id = ?`,
   );
+  const deleteStmt = db.prepare(`DELETE FROM email_account WHERE id = ?`);
 
   return {
     insert(a) {
@@ -63,6 +64,10 @@ export function createAccountRepo(db) {
     },
     setDisabled(id, disabled, updatedAt) {
       return setDisabledStmt.run(disabled ? 1 : 0, updatedAt, id).changes;
+    },
+    /** 物理删除账号（admin，须先删其关联租约以满足外键） */
+    delete(id) {
+      return deleteStmt.run(id).changes;
     },
   };
 }

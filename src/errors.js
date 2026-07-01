@@ -10,6 +10,7 @@ export const ErrorCode = Object.freeze({
   CODE_REVOKED: 'CODE_REVOKED', // 已吊销
   PLAN_DISABLED: 'PLAN_DISABLED', // 套餐停用 / 不存在
   POOL_BUSY: 'POOL_BUSY', // 池满排队超时
+  RECEIVER_UNAVAILABLE: 'RECEIVER_UNAVAILABLE', // 收码通道（IMAP）暂不可用：按需连接失败回滚后返回，可重试
   LEASE_NOT_FOUND: 'LEASE_NOT_FOUND', // 租约不存在
   LEASE_NOT_TERMINAL: 'LEASE_NOT_TERMINAL', // 当前租约非终态（不能 renew）
   RENEW_LIMIT: 'RENEW_LIMIT', // 超过最大重申请次数

@@ -3,7 +3,8 @@
  *
  * 两个维度分开管理：
  * - **占用**（free / leased / disabled）：落 DB `email_account.status`，**重启可恢复占用关系**（C-6）；
- * - **IMAP 健康度**：纯内存态（连通性，重启后重连重新评估），由 ReceiverHub 的 onHealthy/onUnhealthy 驱动。
+ * - **IMAP 健康度**：纯内存态，**按需连模式**下仅反映租约存活期内的连接连通性（由 provider 的
+ *   onHealthy/onUnhealthy 驱动）；账号**释放即复位**（releaseSync），下次取码重新按需建连评估。
  *
  * 所有占用变更经**单写串行执行器**（INV-2/NFR-3：杜绝并发把同一账号分给两个租约）。
  */
@@ -33,6 +34,16 @@ export class AccountPool {
    */
   registerProvider(accountId, provider) {
     this.providers.set(accountId, provider);
+  }
+
+  /**
+   * 注销账号的 provider 与运行态（admin 删除账号时调用）。
+   * @param {string} accountId
+   */
+  removeProvider(accountId) {
+    this.providers.delete(accountId);
+    this.healthy.delete(accountId);
+    this.cooldownUntil.delete(accountId);
   }
 
   /**
@@ -100,6 +111,8 @@ export class AccountPool {
   releaseSync(accountId) {
     const now = Date.now();
     this.store.account.updateStatus(accountId, 'free', now);
+    // 按需连：释放即复位健康度（删除=回到「未知=健康」），避免租约期内的临时 IMAP 抖动让账号永久不可选
+    this.healthy.delete(accountId);
     if (this.cooldownMs > 0) {
       this.cooldownUntil.set(accountId, now + this.cooldownMs);
     }

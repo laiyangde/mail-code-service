@@ -1,118 +1,264 @@
-# mail-code-service · 高校邮箱接码服务
+# mail-code-service · 高校邮箱接码服务使用指南
 
-把「高校邮箱别名 + 收码」单账号能力，**产品化**为可售卖、可自用的接码服务：多账号编排、按订单（唯一码 + 前缀）访问控制、别名互斥下的租约调度、超时自动释放，对外提供 **Web 页面** 与 **HTTP API** 两种取码入口。
+把「高校邮箱别名 + 收码」单账号能力，产品化为可售卖、可自用的接码服务：多账号编排、按唯一码（前缀）访问控制、别名互斥下的租约调度、超时自动释放，提供 **Web 页面** 与 **HTTP API** 两种取码入口。
 
-> **独立项目**：独立 git、独立技术栈，与 `register-factory` **无源码耦合**。开发阶段暂置于其目录下，仅为参考其 `emailManage`（SWPU 登录/别名/IMAP 收码）等既有能力，后续迁出为独立仓库。
+> 想了解设计与不变量（FR-0「杜绝一码多码」等），见 `docs/邮箱接码服务.md`；本文件只讲**怎么用**。
 
-## 文档
+---
 
-- 需求（WHAT/WHY，逐条 FR/不变量/验收）：`docs/邮箱接码服务.md`
-- 实施计划（HOW/WHEN，里程碑 M0–M8）：`docs/开发实施计划.md`
+## 一、两种运行方式
 
-## 技术栈
+### 方式 A：Docker 运行（推荐生产）
 
-`fastify` + `better-sqlite3`（单实例、同步、单写串行，契合「杜绝一码多码」）+ `imapflow`/`mailparser`（收码/删信）+ `axios`（别名 HTTP）+ `cloakbrowser`（仅登录）；前端 `React` + `Vite`。**首版单实例、不引入 Redis**（队列/锁走进程内存，以 `QueuePort`/`LockPort` 预留升级路径）。
-
-## 快速开始
+镜像在构建期预置隐身浏览器二进制、编译 native 模块、构建前端，开箱即用。
 
 ```bash
-npm install
-cp .env.example .env      # 填写账号/IMAP/打码凭据与 API_KEY/ADMIN_TOKEN（见「配置」）
-npm run migrate           # 建库（幂等，可重复执行）
+# 1. 准备配置（首次）
+cp .env.example .env        # Windows PowerShell: Copy-Item .env.example .env
+#    编辑 .env，至少填：ADMIN_TOKEN、API_KEY、SWPU_ACCT_1_* 账号凭据
 
-# 开发：仅起后端，GET /healthz 应返回 { ok: true }
-npm run dev
+# 2. 构建并后台启动（单实例 + 持久化 volume）
+docker compose up -d --build
 
-# 生产：先构建前端（index.js 仅当 web/dist 存在才托管页面），再起服务
-npm run web:build
-npm start
+# 3. 验证
+curl http://localhost:8080/healthz      # 返回 { "ok": true, ... } 即正常
+docker compose logs -f                   # 看启动日志
 ```
 
-启动后：
+要点（已在 `Dockerfile` / `docker-compose.yml` 配好，无需改动）：
 
-- **Web 取码页**：浏览器访问 `http://<host>:<PORT>/<唯一码>`（如 `/svc-xxxx`），点「申请邮箱」→ 倒计时 → SSE 实时回显整封邮件。
-- **健康检查**：`GET /healthz`（含池水位、IMAP 健康数、排队数、SSE 连接数）。
-- **单账号 Provider 自检**（真账号联调）：`npm run demo:swpu`（设别名 → IMAP 收码 → 打印整封邮件）。
+- 端口 `8080:8080`；数据卷 `mcs-data → /app/data`（SQLite + 会话缓存，**重启不丢**占用/租约/配额）。
+- `init: true` 回收浏览器子进程；有头登录用 `xvfb-run` 提供虚拟显示。
+- 健康检查每 30s 打 `/healthz`；`restart: unless-stopped` 自动拉起。
 
-## 配置
+停止 / 更新：
 
-凭据**仅存 `.env`**（已 gitignore），DB 只存引用，日志全链路脱敏（NFR-1）。完整项见 `.env.example`，关键变量：
+```bash
+docker compose down                      # 停止（保留数据卷）
+docker compose up -d --build             # 改代码后重建
+docker compose down -v                   # 连数据卷一起删（慎用，清空 DB）
+```
+
+### 方式 B：源码运行（推荐开发调试）
+
+需要 **Node ≥ 20**。
+
+```bash
+# 1. 安装依赖
+npm install
+
+# 2. 准备配置
+cp .env.example .env        # Windows PowerShell: Copy-Item .env.example .env
+#    编辑 .env（同上）
+
+# 3. 建库（幂等，可重复执行，不破坏已有数据）
+npm run migrate
+
+# 4. 构建前端（不构建则 Web 取码页不可用，仅 API 可用）
+npm run web:build
+
+# 5. 启动
+npm start                   # 生产模式
+# 或
+npm run dev                 # 开发模式（--watch 自动重启）
+```
+
+辅助脚本：
+
+```bash
+npm run demo:swpu           # 单账号 Provider 自检（真账号：登录→设别名→IMAP 收码→打印邮件）
+npm test                    # 全量单测 / 集成 / 竞态用例
+npm run lint                # eslint + prettier 检查
+```
+
+---
+
+## 二、关键配置（`.env`）
+
+凭据**仅存 `.env`**（已 gitignore），数据库只存引用，日志全链路脱敏。完整项见 `.env.example`，最常用：
 
 | 变量 | 说明 |
 |---|---|
-| `PORT` / `SESSION_DATA_DIR` | 端口 / 运行态目录（SQLite + 会话缓存，挂 volume） |
-| `API_KEY` / `ADMIN_TOKEN` | 自用 API（`X-API-Key`）/ Admin（`Bearer`）鉴权；**留空则该入口返回 503 未启用** |
-| `SWPU_ACCT_1_NAME` / `_PASS` / `_IMAP_PASS` / `_GROUP` | 单账号登录名 / 登录密码 / IMAP 独立密码 / 分组（多账号用编号后缀） |
-| `SWPU_CAPTCHA_API_TOKEN` | 登录图形验证码打码（云码） |
-| `IMAP_HOST` / `IMAP_PORT` | 收码 IMAP（默认 `mailgate.swpu.edu.cn:993`） |
-| `LEASE_TTL_SEC` / `ACQUIRE_TIMEOUT_SEC` / `RETENTION_SEC` | 租约无码上限 900s / 排队等待上限 60s / 收码保留期 7 天（可被单个 plan 覆盖） |
-| `RATE_LIMIT_*` / `WEBHOOK_*` / `CLEANUP_*` / `GC_*` | activate 限流 / 自用 webhook / 删信周期 / 回看期满 GC |
+| `PORT` | 服务端口，默认 `8080` |
+| `SESSION_DATA_DIR` | 运行态目录（SQLite + 会话缓存），默认 `./data` |
+| `ADMIN_TOKEN` | **Admin 鉴权令牌**。留空则 `/api/admin/*` 一律返回 `503`（未启用） |
+| `API_KEY` | **自用 API 鉴权密钥**。留空则 `/api/v1/*` 一律返回 `503`（未启用） |
+| `SWPU_ACCT_1_NAME` / `_PASS` / `_IMAP_PASS` / `_GROUP` | 账号登录名 / 登录密码 / IMAP 独立密码 / 分组。多账号用编号后缀：`SWPU_ACCT_2_NAME`… |
+| `SWPU_CAPTCHA_API_TOKEN` | 登录图形验证码打码 token（云码） |
+| `IMAP_HOST` / `IMAP_PORT` | 收码 IMAP，默认 `mailgate.swpu.edu.cn:993` |
+| `LEASE_TTL_SEC` | 租约「无码」上限，默认 `900`（15 分钟） |
+| `QUEUE_TIMEOUT_SEC` | 排队兜底上限，默认 `1800`（30min）；超此仍未轮到转 `rejected`。产品上不设硬超时，排队实时显示前面人数与已等待时长 |
+| `RETENTION_SEC` | 成功收码后回看保留期，默认 `604800`（7 天） |
+| `RATE_LIMIT_ACTIVATE_MAX` / `_WINDOW_SEC` | activate 限流：单 `code+IP` 窗口内最大次数 / 窗口秒数 |
+| `WEBHOOK_SECRET` / `_TIMEOUT_MS` / `_MAX_RETRIES` | 自用 API webhook 的 HMAC 签名 / 超时 / 重试 |
 
-## API 速览
+> **账号凭据存放规则（重要）**：数据库 `email_account.creds_ref` 字段存的是 **`.env` 变量前缀**（如 `SWPU_ACCT_1`），运行时据此读取 `SWPU_ACCT_1_NAME/_PASS/_IMAP_PASS/_GROUP`。所以**新增账号前，必须先把该账号的凭据写进 `.env`**。
 
-响应统一 `{ errCode, errMsg, data }`。详见需求文档 §9。
+---
 
-**公开入口**（凭唯一码，无需鉴权，`/api/public`）
+## 三、鉴权（三类入口，各自独立）
 
-| 方法 | 路径 | 说明 |
-|---|---|---|
-| POST | `/activate` | `{ code }` → 分流 `active`（含别名/到期）/ `used` 回看 / 错误码 |
-| GET | `/leases/:id` | 轮询租约状态 |
-| GET | `/leases/:id/stream` | **SSE** 实时推送：`message`(状态) / `done`(终态，附整封邮件) |
-| POST | `/leases/:id/renew` · `/cancel` | 超时重申请 / 提前释放 |
-| GET | `/codes/:code/results` | 收码结果回看（保留期内的整封历史邮件） |
+所有响应统一为 `{ errCode, errMsg, data }`：成功 `errCode: 0`，失败 `errCode` 为字符串错误码。
 
-**自用 API**（`X-API-Key`，`/api/v1`）：`POST /leases`（可带 `callbackUrl` webhook）· `GET /leases/:id` · `DELETE /leases/:id`
+| 入口 | 前缀 | 鉴权方式 | 未配置密钥时 | 密钥错误时 |
+|---|---|---|---|---|
+| **公开**（付费用户取码） | `/api/public` | 无需鉴权（凭唯一码本身） | — | — |
+| **自用 API**（内部脚本） | `/api/v1` | 请求头 `X-API-Key: <API_KEY>` | `503 API_DISABLED` | `401 UNAUTHORIZED` |
+| **Admin**（管理后台） | `/api/admin` | 请求头 `Authorization: Bearer <ADMIN_TOKEN>` | `503 ADMIN_DISABLED` | `401 UNAUTHORIZED` |
 
-**Admin**（`Authorization: Bearer <ADMIN_TOKEN>`，`/api/admin`）：`accounts`（增删/启停/强制重登，新增即热起 IMAP）· `plans` · `codes`（批量生成/吊销）· `stats`
+> 密钥比较使用定长安全比较（防时序侧信道）。留空密钥被视为「该入口未启用」，而非「放行任何人」。
 
-## 测试与验收
+---
 
-```bash
-npm test            # 全量单测/集成/竞态：113 通过 / 16 文件
-npm run test:race   # 仅 FR-0「杜绝一码多码」六个竞态用例
-npm run lint        # eslint + prettier
+## 四、管理员完整流程（从零到可取码）
+
+以下示例假设 `ADMIN_TOKEN=local-dev-admin`，服务跑在 `localhost:8080`。
+
+### 1）先在 `.env` 配好账号凭据，再新增账号
+
+`.env` 里确保有：
+
+```
+SWPU_ACCT_1_NAME=2020xxxx@swpu.edu.cn
+SWPU_ACCT_1_PASS=登录密码
+SWPU_ACCT_1_IMAP_PASS=IMAP授权码
+SWPU_ACCT_1_GROUP=swpu
 ```
 
-- **FR-0 头号不变量**：DB partial unique index + CHECK + 单写串行执行器 + 原子收码事务 + 收码幂等 + 终态不可逆，六个竞态用例全过。
-- **真实账号端到端**（已用真实 SWPU 账号验证）：
-  - *Provider 级*——CloakBrowser 登录 + 打码 + 会话持久化复用 + 别名改名（HTTP `action=mod`）+ IMAP 三重匹配交付整封邮件 + 删信（`STORE \Deleted` + `EXPUNGE` 按 UID）；
-  - *服务级*——Admin 热注册账号 → 生成唯一码 → `activate` 取别名 → **SSE 实时回显**收到的整封邮件 → 原子扣配额 → 回看，全链路打通。
-
-## 部署
-
-单容器 Docker（`Dockerfile` + `docker-compose.yml`）：构建期预置 CloakBrowser 二进制，运行期固定 `CLOAKBROWSER_BINARY_PATH` + `AUTO_UPDATE=false`；`data/` 挂 named volume（重启恢复占用/租约/配额，C-6）；`--init` 回收 Chromium 子进程；有头登录配 Xvfb。优雅停机（SIGTERM）先停接收、持久化在途、关闭 IMAP 再退出。
+新增账号（`credsRef` 填上面的前缀 `SWPU_ACCT_1`）。**新增即热生效**：自动注册 provider 入池，无需重启；IMAP 在首次取码（绑定租约）时**按需建连**，不常驻。
 
 ```bash
-docker compose up -d        # 起单实例 + data volume
+curl -X POST http://localhost:8080/api/admin/accounts \
+  -H "Authorization: Bearer local-dev-admin" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "id": "swpu-1",
+    "university": "西南石油大学",
+    "domain": "swpu.edu.cn",
+    "group": "swpu",
+    "credsRef": "SWPU_ACCT_1"
+  }'
 ```
 
-## 项目状态
+其它账号管理：
 
-里程碑 M0–M8 全部完成，单测 113 通过、lint 0 错、真实账号 Provider 级与服务级端到端均已跑通。
+```bash
+curl http://localhost:8080/api/admin/accounts        -H "Authorization: Bearer local-dev-admin"   # 列表（脱敏，含健康度）
+curl -X POST .../api/admin/accounts/swpu-1/disable   -H "Authorization: Bearer local-dev-admin"   # 禁用
+curl -X POST .../api/admin/accounts/swpu-1/enable    -H "Authorization: Bearer local-dev-admin"   # 启用
+curl -X POST .../api/admin/accounts/swpu-1/relogin   -H "Authorization: Bearer local-dev-admin"   # 强制重登
+```
 
-- [x] **M0** 工程脚手架：ESM 工程 + 配置/脱敏日志 + `/healthz`
-- [x] **M1** 持久化与状态地基：DDL + 护栏索引 + 状态机 + 单写串行执行器
-- [x] **M2** Provider（SWPU）· **M3** AccountPool · **M4** ReceiverHub
-- [x] **M5** LeaseManager + FR-0 全护栏（核心，含一码多码竞态用例）
-- [x] **M6** 接入层 API：public/v1/admin 路由 + SSE 实时回显 + 限流 + 统一错误码
-- [x] **M7** Web 前端（React `/{code}`：申请邮箱/倒计时/SSE 回显整封邮件/重申请/回看）
-- [x] **M8** 运维/部署：Cleaner 删信 + 7 天 GC + 重启恢复 + 优雅停机 + Docker
+### 2）创建套餐（前缀 = 一套约束）
 
-## 目录
+`group` 必须与账号分组匹配，套餐才能选到该账号。
+
+```bash
+curl -X POST http://localhost:8080/api/admin/plans \
+  -H "Authorization: Bearer local-dev-admin" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "prefix": "gh",
+    "name": "GitHub 注册码",
+    "allowedGroups": ["swpu"],
+    "targetSenders": ["@github.com"],
+    "codeRegex": "\\b\\d{4,8}\\b",
+    "quota": 1,
+    "leaseTtlSec": 900,
+    "retentionSec": 604800,
+    "maxRenews": 5,
+    "enabled": true
+  }'
+
+curl http://localhost:8080/api/admin/plans -H "Authorization: Bearer local-dev-admin"   # 列出套餐
+```
+
+字段含义：`allowedGroups` 允许使用的账号分组；`targetSenders` 收码发件人（域名/通配）；`codeRegex` 验证码提取正则（可选便利字段）；`quota` 成功收码次数；`leaseTtlSec` 无码超时；`retentionSec` 回看保留期；`maxRenews` 最大重申请次数。`POST` 为 upsert（同前缀覆盖）。
+
+### 3）批量生成唯一码
+
+```bash
+curl -X POST http://localhost:8080/api/admin/codes \
+  -H "Authorization: Bearer local-dev-admin" \
+  -H "Content-Type: application/json" \
+  -d '{ "prefix": "gh", "count": 10 }'
+# → { "errCode":0, "data": { "count":10, "codes":["gh-3f9a…","gh-7c2b…", …] } }
+```
+
+唯一码形如 `gh-<32位hex>`（128bit 随机，不可枚举）。生成的码 `status=unused`、**永久有效**（直到首次成功收码才开始 7 天回看倒计时）。
+
+按状态查询 / 吊销：
+
+```bash
+curl "http://localhost:8080/api/admin/codes?status=unused" -H "Authorization: Bearer local-dev-admin"
+curl -X POST http://localhost:8080/api/admin/codes/gh-3f9a.../revoke -H "Authorization: Bearer local-dev-admin"
+```
+
+### 4）发放与取码
+
+把链接 `http://<host>:8080/<唯一码>`（如 `/gh-3f9a…`）发给用户。用户打开页面 → 点「申请邮箱」→ 倒计时 → SSE 实时回显整封邮件。
+
+### 5）监控
+
+```bash
+curl http://localhost:8080/api/admin/stats -H "Authorization: Bearer local-dev-admin"
+# → 池水位 free/leased/unhealthy、排队数、SSE 连接数、各状态租约数
+```
+
+---
+
+## 五、API 参考
+
+### 公开入口 `/api/public`（无需鉴权）
+
+| 方法 | 路径 | 请求 | 说明 |
+|---|---|---|---|
+| POST | `/activate` | `{ "code": "gh-…" }` | 申请邮箱：分流 `active`（含 `alias`/`expiresAt`）或 `used` 回看；失效返回错误码 |
+| GET | `/leases/:id` | — | 轮询租约状态 |
+| GET | `/leases/:id/stream` | — | **SSE** 实时推送：`message`（状态）/ `done`（终态，附整封邮件）；已终态重连返回 `204` |
+| POST | `/leases/:id/renew` | — | 超时后重申请（受 `maxRenews` 限制） |
+| POST | `/leases/:id/cancel` | — | 提前释放 |
+| GET | `/codes/:code/results` | — | 收码结果回看（保留期内的整封历史邮件） |
+
+### 自用 API `/api/v1`（`X-API-Key`）
+
+直接按套餐取码，内部即时签发临时码走同一闭环（复用全部安全护栏）。
+
+```bash
+# 申请：返回别名 + 到期时间（可选 callbackUrl 做 webhook 回调）
+curl -X POST http://localhost:8080/api/v1/leases \
+  -H "X-API-Key: local-dev-apikey" \
+  -H "Content-Type: application/json" \
+  -d '{ "plan": "gh", "callbackUrl": "https://your.app/hook" }'
+# → { "data": { "leaseId":"…", "alias":"xxx@swpu.edu.cn", "expiresAt":169…, "code":"gh-…" } }
+
+# 取码：received 时 data 含整封 mail（from/to/subject/date/text/html）+ 便利 code
+curl http://localhost:8080/api/v1/leases/<leaseId> -H "X-API-Key: local-dev-apikey"
+
+# 提前释放
+curl -X DELETE http://localhost:8080/api/v1/leases/<leaseId> -H "X-API-Key: local-dev-apikey"
+```
+
+### 常见错误码
+
+`CODE_NOT_FOUND`（不存在）· `CODE_EXPIRED`（回看期满，410）· `CODE_EXHAUSTED`（配额耗尽，409）· `CODE_REVOKED`（已吊销）· `PLAN_DISABLED`（套餐停用/不存在）· `POOL_BUSY`（池满排队超时，503）· `LEASE_NOT_FOUND` · `LEASE_NOT_TERMINAL`（非终态不能 renew）· `RENEW_LIMIT`（超重申请上限）。
+
+---
+
+## 六、目录结构
 
 ```
 src/
-├── provider/     # A 层 EmailProvider 接口 + SWPU 实现（仅登录走浏览器）
-├── pool/         # B 层 账号池（空闲选取/健康/原子加锁）
-├── lease/        # C 层 租约调度（核心）+ ports（QueuePort/LockPort 内存实现）
-├── access/       # D 层 套餐/前缀/唯一码 校验与配额
-├── receiver/     # E 层 IMAP 聚合收码 → 路由到活跃租约
-├── api/          # F 层 public / v1 / admin 路由 + SSE
-├── cleaner/      # H 层 删信 + 7 天 GC 定时任务
-├── store/        # G 层 SQLite 持久化（schema/migrate/repo/tx）
-├── core/         # 单写串行执行器 + 状态机
-├── config.js  logger.js  index.js
-web/              # React 前端 /{code}
-data/             # 运行态（SQLite + 会话缓存，gitignore，挂 volume）
+├── provider/   EmailProvider 接口 + SWPU 实现（仅登录走浏览器）
+├── pool/       账号池（空闲选取 / 健康 / 原子加锁）
+├── lease/      租约调度（核心）+ ports（队列/锁内存实现）
+├── access/     套餐/前缀/唯一码 校验、配额、唯一码生成
+├── receiver/   IMAP 聚合收码（按需连：绑定租约时连、释放时断）→ 路由到活跃租约
+├── api/        public / v1 / admin 路由 + SSE + 鉴权 + 统一响应
+├── cleaner/    删信 + 7 天 GC 定时任务
+├── store/      SQLite 持久化（schema / migrate / repo / 事务）
+├── core/       单写串行执行器 + 状态机
+└── index.js    装配与启动（恢复状态 / 优雅停机）
+web/            React 前端 /{code}
+data/           运行态（SQLite + 会话缓存，挂 volume）
 ```

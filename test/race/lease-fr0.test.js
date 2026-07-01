@@ -24,6 +24,7 @@ describe('M5 FR-0 杜绝一码多码（竞态验收 §12 #9）', () => {
     const h = createHarness({ accounts: 1 });
     const code = h.issueCode('gh-x', 1);
     const { lease } = await h.manager.createLease(code);
+    await h.manager.confirmReceiving(lease.id);
     const mail = h.mailFor(100, lease);
     h.providers.acc1.emit(mail);
     h.providers.acc1.emit(mail); // 同一封重复
@@ -64,6 +65,7 @@ describe('M5 FR-0 杜绝一码多码（竞态验收 §12 #9）', () => {
     const h = createHarness({ accounts: 1 });
     const code = h.issueCode('gh-z', 1);
     const { lease } = await h.manager.createLease(code);
+    await h.manager.confirmReceiving(lease.id);
     h.providers.acc1.emit(h.mailFor(301, lease));
     h.providers.acc1.emit(h.mailFor(302, lease)); // 不同 uid，几乎同时
     await h.flush();
@@ -75,6 +77,7 @@ describe('M5 FR-0 杜绝一码多码（竞态验收 §12 #9）', () => {
     const h = createHarness({ accounts: 1 });
     const code = h.issueCode('gh-c', 1);
     const { lease } = await h.manager.createLease(code);
+    await h.manager.confirmReceiving(lease.id);
     h.providers.acc1.emit(h.mailFor(400, lease));
     await h.flush();
     expect(h.store.accessCode.getByCode(code).status).toBe('used');
@@ -101,5 +104,17 @@ describe('M5 FR-0 杜绝一码多码（竞态验收 §12 #9）', () => {
         createdAt: Date.now(),
       }),
     ).toThrow();
+  });
+
+  it('⑦ 同码并发池满 10 次 activate → 只 1 个 pending 租约（单飞 + INV-1′）', async () => {
+    const h = createHarness({ accounts: 1 });
+    await h.manager.createLease(h.issueCode('gh-occupied')); // 占满唯一账号
+    const code = h.issueCode('gh-queue', 1);
+    const results = await Promise.all(
+      Array.from({ length: 10 }, () => h.manager.createLease(code)),
+    );
+    expect(results.every((r) => r.status === 'pending')).toBe(true);
+    expect(new Set(results.map((r) => r.lease.id)).size).toBe(1); // 复用同一 pending
+    expect(h.store.lease.listByStatus('pending')).toHaveLength(1);
   });
 });

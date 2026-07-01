@@ -11,7 +11,7 @@
  * @param {import('./webhook.js').WebhookDispatcher} opts.webhook
  */
 import { ok, fail, sendError } from './response.js';
-import { leaseView } from './views.js';
+import { leaseView, secToMs } from './views.js';
 import { ApiError, ErrorCode } from '../errors.js';
 import { generateCode } from '../access/code-gen.js';
 import { apiKeyHook } from './auth.js';
@@ -50,11 +50,13 @@ export default async function v1Routes(app, opts) {
         // 新签发码不应命中 used 分支；防御性返回
         return fail(reply, new ApiError(ErrorCode.CODE_EXHAUSTED, '套餐配额异常'));
       }
+      // 自用 API 无「我已发送邮件」交互，拿到别名即开始收码（立即连 IMAP）
+      await manager.confirmReceiving(result.lease.id);
       if (callbackUrl) webhook.register(result.lease.id, callbackUrl);
       return ok(reply, {
         leaseId: result.lease.id,
         alias: result.lease.alias,
-        expiresAt: result.lease.expiresAt,
+        expiresAt: secToMs(result.lease.expiresAt),
         code,
       });
     } catch (err) {

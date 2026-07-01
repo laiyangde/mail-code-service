@@ -39,16 +39,17 @@ const mailTo = (uid, to) => ({
   html: '',
 });
 
-describe('M4 ReceiverHub', () => {
-  it('bindLease → 命中邮件 → onDeliver 收到 payload', async () => {
+describe('M4 ReceiverHub（按需连）', () => {
+  it('bindLease → 按需建连 + 命中邮件 → onDeliver 收到 payload', async () => {
     const { hub, provider, exec } = setup();
     const delivered = [];
     hub.setDeliverHandler((p) => delivered.push(p));
-    hub.bindLease(
+    await hub.bindLease(
       'acc1',
       { id: 'l1', accessCode: 'gh-a' },
       { to: 'a@swpu.edu.cn', fromSenders: ['@github.com'], since: 0 },
     );
+    expect(provider.started).toBe(true); // 绑定即按需建连
     provider.emit(mailTo(100, 'a@swpu.edu.cn'));
     await flush(exec);
     expect(delivered).toHaveLength(1);
@@ -67,7 +68,7 @@ describe('M4 ReceiverHub', () => {
     });
     const delivered = [];
     hub.setDeliverHandler((p) => delivered.push(p));
-    hub.bindLease(
+    await hub.bindLease(
       'acc1',
       { id: 'l1', accessCode: 'gh-a' },
       { to: 'a@swpu.edu.cn', fromSenders: ['@github.com'], since: 0 },
@@ -77,36 +78,52 @@ describe('M4 ReceiverHub', () => {
     expect(delivered).toHaveLength(0);
   });
 
-  it('unbindLease 后订阅取消，邮件不再回调', async () => {
+  it('unbindLease 后订阅取消并后台断连，邮件不再回调', async () => {
     const { hub, provider, exec } = setup();
     const delivered = [];
     hub.setDeliverHandler((p) => delivered.push(p));
-    hub.bindLease(
+    await hub.bindLease(
       'acc1',
       { id: 'l1', accessCode: 'gh-a' },
       { to: 'a@swpu.edu.cn', fromSenders: ['@github.com'], since: 0 },
     );
     hub.unbindLease('acc1');
     expect(provider.hasSub).toBe(false);
+    expect(provider.stopCount).toBeGreaterThan(0); // 后台断连已触发
     provider.emit(mailTo(100, 'a@swpu.edu.cn'));
     await flush(exec);
     expect(delivered).toHaveLength(0);
   });
 
-  it('bindLease 覆盖旧绑定（防订阅泄漏）', () => {
+  it('bindLease 覆盖旧绑定（防订阅泄漏）', async () => {
     const { hub, provider } = setup();
     hub.setDeliverHandler(() => {});
-    hub.bindLease(
+    await hub.bindLease(
       'acc1',
       { id: 'l1', accessCode: 'gh-a' },
       { to: 'a@swpu.edu.cn', fromSenders: ['@x'], since: 0 },
     );
-    hub.bindLease(
+    await hub.bindLease(
       'acc1',
       { id: 'l2', accessCode: 'gh-b' },
       { to: 'b@swpu.edu.cn', fromSenders: ['@x'], since: 0 },
     );
     expect(hub.bindings.get('acc1').leaseId).toBe('l2');
     expect(provider.match.to).toBe('b@swpu.edu.cn');
+  });
+
+  it('bindLease 按需建连失败 → 抛错且不留绑定（交 LeaseManager 回滚）', async () => {
+    const { hub, provider } = setup();
+    hub.setDeliverHandler(() => {});
+    provider.setFailStart(true);
+    await expect(
+      hub.bindLease(
+        'acc1',
+        { id: 'l1', accessCode: 'gh-a' },
+        { to: 'a@swpu.edu.cn', fromSenders: ['@github.com'], since: 0 },
+      ),
+    ).rejects.toThrow();
+    expect(hub.bindings.has('acc1')).toBe(false);
+    expect(provider.hasSub).toBe(false);
   });
 });

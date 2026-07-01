@@ -1,12 +1,12 @@
 /**
- * 收码聚合 ReceiverHub（M4 / FR-4）：为每启用账号建常驻 IMAP 订阅，命中邮件按 C-4 路由到
- * 该账号**当前活跃租约**，交给 LeaseManager 做原子交付。
+ * 收码聚合 ReceiverHub（M4 / FR-4）：**按需**为活跃租约建 IMAP 订阅——绑定租约时连接 + 订阅、
+ * 解绑时取消订阅并后台断连；命中邮件按 C-4 路由到该账号**当前活跃租约**，交给 LeaseManager 做原子交付。
  *
  * 幂等分两层：
  * - **预检**（本层，优化）：`processed_mail.exists` 命中直接丢弃，省一次交付事务；
  * - **权威**（M5 deliver 的原子事务内 `INSERT processed_mail`）：崩溃也原子，是真正的护栏（FR-0 M5）。
  *
- * 因 C-1「每账号至多一个活跃租约」，一个账号同一时刻仅一条绑定。
+ * 因 C-1「每账号至多一个活跃租约」，一个账号同一时刻仅一条绑定（也仅一条 IMAP 连接）。
  */
 import { logger } from '../logger.js';
 
@@ -36,32 +36,19 @@ export class ReceiverHub {
     this.onDeliver = fn;
   }
 
-  /** 启动所有启用账号的常驻 IMAP 连接（warmup / 启动序列调用，FR-1.5）。 */
-  async start() {
-    for (const acc of this.store.account.listEnabled()) {
-      const provider = this.pool.getProvider(acc.id);
-      if (!provider) continue;
-      try {
-        await provider.startReceiver();
-        this.pool.setHealthy(acc.id);
-        logger.info({ accountId: acc.id }, 'ReceiverHub：账号 IMAP 常驻就绪');
-      } catch (err) {
-        this.pool.setUnhealthy(acc.id);
-        logger.warn({ accountId: acc.id, err: err.message }, 'ReceiverHub：账号 IMAP 启动失败');
-      }
-    }
-  }
-
   /**
-   * 把某账号的收码绑定到一个活跃租约（createLease 置 active 后调用）。
+   * 把某账号的收码绑定到一个活跃租约：**按需建 IMAP 连接** + 订阅（createLease 置 active 后调用）。
+   * 连接失败会抛出，由 LeaseManager 回滚本次申请（释放账号、租约置终态、唯一码退回 unused）。
    * @param {string} accountId
    * @param {object} lease 活跃租约（至少含 id、accessCode）
    * @param {import('../provider/email-provider.js').MailMatch} match
+   * @returns {Promise<void>}
    */
-  bindLease(accountId, lease, match) {
+  async bindLease(accountId, lease, match) {
     const provider = this.pool.getProvider(accountId);
     if (!provider) throw new Error(`账号 ${accountId} 无 provider，无法绑定收码`);
-    this.unbindLease(accountId); // 防泄漏：先解绑旧订阅
+    this.unbindLease(accountId); // 防泄漏：先解绑旧订阅（同步 + 后台断旧连）
+    await provider.startReceiver(); // 按需建连（失败抛错 → LeaseManager 回滚）
     const unsub = provider.subscribeMail(match, (mail) => this._onMail(accountId, lease, mail));
     this.bindings.set(accountId, { leaseId: lease.id, unsub });
     logger.info({ accountId, leaseId: lease.id, to: match.to }, 'ReceiverHub：绑定收码到租约');
@@ -69,18 +56,25 @@ export class ReceiverHub {
 
   /**
    * 解绑某账号的收码（租约终态：received/expired/cancelled 后调用）。
+   * **同步**取消订阅（在串行执行器上下文内被调用），随后**后台断连**（fire-and-forget）。
    * @param {string} accountId
    */
   unbindLease(accountId) {
     const binding = this.bindings.get(accountId);
-    if (binding) {
-      try {
-        binding.unsub?.();
-      } catch {
-        /* 忽略取消订阅异常 */
-      }
-      this.bindings.delete(accountId);
+    if (!binding) return;
+    try {
+      binding.unsub?.();
+    } catch {
+      /* 忽略取消订阅异常 */
     }
+    this.bindings.delete(accountId);
+    // 后台断连（fire-and-forget）：断连成败不影响 FR-0（交付已在原子事务内完成），不阻塞同步交付路径
+    this.pool
+      .getProvider(accountId)
+      ?.stopReceiver?.()
+      .catch((err) =>
+        logger.warn({ accountId, err: err.message }, 'ReceiverHub：IMAP 后台断连失败（忽略）'),
+      );
   }
 
   /**
@@ -104,7 +98,7 @@ export class ReceiverHub {
     });
   }
 
-  /** 停止全部订阅与常驻连接（优雅停机）。 */
+  /** 停止全部订阅与连接（优雅停机）。 */
   async stopAll() {
     for (const accountId of [...this.bindings.keys()]) {
       this.unbindLease(accountId);

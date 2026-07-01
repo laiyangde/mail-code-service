@@ -67,6 +67,28 @@ describe('M1 DB 护栏（FR-0 兜底防线）', () => {
     ).toThrow();
   });
 
+  it('同一 access_code 至多一个 pending 租约（INV-1′）', () => {
+    const now = seed();
+    store.lease.insert({
+      id: 'p1',
+      accessCode: 'gh-aaa',
+      plan: 'gh',
+      accountId: null,
+      status: 'pending',
+      createdAt: now,
+    });
+    expect(() =>
+      store.lease.insert({
+        id: 'p2',
+        accessCode: 'gh-aaa',
+        plan: 'gh',
+        accountId: null,
+        status: 'pending',
+        createdAt: now,
+      }),
+    ).toThrow();
+  });
+
   it('同一 account 至多一个 active 租约（INV-2）', () => {
     const now = seed();
     store.lease.insert({

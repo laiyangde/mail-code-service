@@ -30,9 +30,12 @@ export class ApiError extends Error {
 async function request(path, init) {
   let res;
   try {
+    // 仅在有 body 时才声明 application/json：无 body 的 POST（renew/cancel）若仍带该
+    // content-type，Fastify 会因空 body 抛 FST_ERR_CTP_EMPTY_JSON_BODY（400）。
+    const headers = init?.body ? { 'Content-Type': 'application/json' } : {};
     res = await fetch(path, {
-      headers: { 'Content-Type': 'application/json' },
       ...init,
+      headers: { ...headers, ...init?.headers },
     });
   } catch {
     // 网络层失败（断网/服务不可达）
@@ -78,6 +81,13 @@ export const renewLease = (leaseId) =>
  */
 export const cancelLease = (leaseId) =>
   request(`/api/public/leases/${encodeURIComponent(leaseId)}/cancel`, { method: 'POST' });
+
+/**
+ * 确认已发送邮件 → 开始连 IMAP 收码（FR-6）。返回更新后的租约视图（receiving=true）。
+ * @param {string} leaseId
+ */
+export const confirmSent = (leaseId) =>
+  request(`/api/public/leases/${encodeURIComponent(leaseId)}/confirm`, { method: 'POST' });
 
 /**
  * 收码结果回看（FR-2.7/6.9）。

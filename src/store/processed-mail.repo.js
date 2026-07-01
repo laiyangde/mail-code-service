@@ -11,6 +11,7 @@ export function createProcessedMailRepo(db) {
   );
   const existsStmt = db.prepare(`SELECT 1 FROM processed_mail WHERE account_id = ? AND uid = ?`);
   const deleteByLeaseStmt = db.prepare(`DELETE FROM processed_mail WHERE lease_id = ?`);
+  const deleteByAccountStmt = db.prepare(`DELETE FROM processed_mail WHERE account_id = ?`);
 
   return {
     /** 记录已处理邮件；返回 true=首次（应处理），false=重复（应丢弃，幂等去重） */
@@ -23,6 +24,10 @@ export function createProcessedMailRepo(db) {
     /** 物理删除某租约的幂等记录（GC 用，FR-10.3） */
     deleteByLease(leaseId) {
       return deleteByLeaseStmt.run(leaseId).changes;
+    },
+    /** 物理删除某账号的全部幂等记录（admin 删账号时用） */
+    deleteByAccount(accountId) {
+      return deleteByAccountStmt.run(accountId).changes;
     },
   };
 }

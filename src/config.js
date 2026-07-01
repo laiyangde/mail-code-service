@@ -52,7 +52,8 @@ export const config = {
   /** 调度默认值，单个 plan 可覆盖（lease_ttl_sec 等列） */
   lease: {
     ttlSec: intEnv('LEASE_TTL_SEC', 900),
-    acquireTimeoutSec: intEnv('ACQUIRE_TIMEOUT_SEC', 60),
+    /** 排队兜底上限秒数：pending 租约超此仍未轮到 → rejected（产品上不设硬超时，此为防泄漏兜底，默认 30min） */
+    queueTimeoutSec: intEnv('QUEUE_TIMEOUT_SEC', 1800),
     retentionSec: intEnv('RETENTION_SEC', 604800),
   },
 

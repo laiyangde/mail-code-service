@@ -1,85 +1,140 @@
 /**
  * 进行中卡（M7 / FR-6.2）：展示别名（一键复制）、套餐说明、15min 倒计时、状态条。
- * `pending`（排队，首版极少触发）显示排队提示，无别名/倒计时。
+ * `pending`（排队）显示「前面还有几人」+「已排队时长」+ 放弃排队，无别名/倒计时。antd 版。
+ *
+ * 倒计时沿用 useCountdown（剩余 ≤60s 变橙、超时变红）；排队计时用 useElapsed（正向累加）。
  */
-import CopyButton from './CopyButton.jsx';
+import { Button, Col, Row, Spin, Statistic, Steps, Typography } from 'antd';
 import { useCountdown } from '../hooks/useCountdown.js';
+import { useElapsed } from '../hooks/useElapsed.js';
 
-/** 状态条三步：申请 → 等待邮件 → 已收到 */
-function StatusBar({ status }) {
-  const stepClass = (idx) => {
-    // idx: 0 申请, 1 等待邮件, 2 已收到
-    if (status === 'pending') return idx === 0 ? 'active' : '';
-    if (status === 'active') {
-      if (idx === 0) return 'done';
-      if (idx === 1) return 'active';
-      return '';
-    }
-    return ''; // received 由 MailView 接管，不在此渲染
-  };
-  return (
-    <div className="statusbar">
-      <div className={`status-step ${stepClass(0)}`}>申请邮箱</div>
-      <div className={`status-step ${stepClass(1)}`}>等待邮件</div>
-      <div className={`status-step ${stepClass(2)}`}>收到邮件</div>
-    </div>
-  );
-}
+const { Title, Paragraph, Text } = Typography;
+
+/** 状态条三步：申请邮箱 → 等待邮件 → 收到邮件 */
+const STEP_ITEMS = [{ title: '申请邮箱' }, { title: '等待邮件' }, { title: '收到邮件' }];
 
 /**
  * @param {object} props
- * @param {object} props.lease `{alias, expiresAt, plan, status}`
- * @param {() => void} [props.onCancel] 提前释放
+ * @param {object} props.lease `{alias, expiresAt, plan, status, receiving?, queueAhead?, enqueuedAt?}`
+ * @param {() => void} [props.onCancel] 提前释放 / 放弃排队
+ * @param {() => void} [props.onConfirm] 确认「我已发送邮件」→ 开始收码
+ * @param {boolean} [props.confirming] 确认请求进行中
  */
-export default function ActiveCard({ lease, onCancel }) {
+export default function ActiveCard({ lease, onCancel, onConfirm, confirming }) {
   const { mmss, remainMs, over } = useCountdown(lease.expiresAt);
+  const { mmss: waited } = useElapsed(lease.enqueuedAt);
   const isPending = lease.status === 'pending';
 
   if (isPending) {
+    const ahead = lease.queueAhead ?? 0;
     return (
-      <div>
-        <h1 className="title">正在排队</h1>
-        <p className="subtitle">邮箱资源暂时占满，正在为你排队，请稍候…</p>
-        <div className="loading mt">
-          <span className="spinner" />
-          <span>等待空闲邮箱</span>
+      <>
+        <Title level={4} style={{ marginTop: 0 }}>
+          正在排队
+        </Title>
+        <Paragraph type="secondary">
+          邮箱资源暂时占满，已为你排队，一有空闲会立即分配并开始收码。
+        </Paragraph>
+
+        <Row gutter={16} style={{ margin: '4px 0 16px' }}>
+          <Col span={12}>
+            <Statistic
+              title="前面还有"
+              value={ahead}
+              suffix="人"
+              valueStyle={{ color: '#4f8cff' }}
+            />
+          </Col>
+          <Col span={12}>
+            <Statistic
+              title="已排队"
+              value={waited}
+              valueStyle={{ fontVariantNumeric: 'tabular-nums' }}
+            />
+          </Col>
+        </Row>
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
+          <Spin size="small" />
+          <Text type="secondary">
+            {ahead === 0 ? '即将轮到你，正在准备邮箱…' : '正在等待空闲邮箱…'}
+          </Text>
         </div>
-        <StatusBar status="pending" />
-      </div>
+        <Steps size="small" current={0} items={STEP_ITEMS} />
+
+        {onCancel && (
+          <Button block style={{ marginTop: 16 }} onClick={onCancel}>
+            放弃排队
+          </Button>
+        )}
+      </>
     );
   }
 
-  const cdClass = over ? 'over' : remainMs <= 60_000 ? 'warn' : '';
+  // 倒计时配色：超时红、最后 1 分钟橙、其余绿
+  const cdColor = over ? '#ef5a5a' : remainMs <= 60_000 ? '#f0a73c' : '#36c98a';
 
   return (
-    <div>
-      <h1 className="title">邮箱已就绪</h1>
-      <p className="subtitle">
-        请将下面的邮箱地址填入目标平台（套餐：<span className="code-chip">{lease.plan}</span>），
-        发来的邮件会自动显示在本页面。
-      </p>
+    <>
+      <Title level={4} style={{ marginTop: 0 }}>
+        邮箱已就绪
+      </Title>
+      <Paragraph type="secondary">
+        请将下面的邮箱地址填入目标平台（套餐 <Text code>{lease.plan}</Text>
+        ），发来的邮件会自动显示在本页面。
+      </Paragraph>
 
-      <div className="field-label">你的临时邮箱</div>
-      <div className="alias-box">
-        <span className="alias-text">{lease.alias}</span>
-        <CopyButton text={lease.alias} />
+      <Text type="secondary" style={{ fontSize: 13 }}>
+        你的临时邮箱
+      </Text>
+      <Paragraph style={{ marginTop: 4 }}>
+        <Text copyable style={{ fontSize: 16 }}>
+          {lease.alias}
+        </Text>
+      </Paragraph>
+
+      <Text type="secondary" style={{ fontSize: 13 }}>
+        剩余等待时间
+      </Text>
+      <div
+        style={{
+          textAlign: 'center',
+          fontSize: 30,
+          fontWeight: 700,
+          letterSpacing: 1,
+          margin: '6px 0',
+          color: cdColor,
+          fontVariantNumeric: 'tabular-nums',
+        }}
+      >
+        {over ? '已超时' : mmss}
       </div>
 
-      <div className="field-label mt-sm">剩余等待时间</div>
-      <div className={`countdown ${cdClass}`}>{over ? '已超时' : mmss}</div>
-
-      <StatusBar status="active" />
-
-      <div className="loading mt-sm">
-        <span className="spinner" />
-        <span>正在实时监听新邮件…</span>
+      <div style={{ margin: '16px 0' }}>
+        <Steps size="small" current={lease.receiving ? 1 : 0} items={STEP_ITEMS} />
       </div>
+
+      {lease.receiving ? (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <Spin size="small" />
+          <Text type="secondary">正在实时监听新邮件…</Text>
+        </div>
+      ) : (
+        <>
+          <Button type="primary" block size="large" loading={confirming} onClick={onConfirm}>
+            我已发送邮件
+          </Button>
+          <Paragraph type="secondary" style={{ fontSize: 13, marginTop: 10, marginBottom: 0 }}>
+            请先把上面的邮箱填到目标平台并触发发信，再点此按钮开始接收（点击后才连接邮箱查收）。
+          </Paragraph>
+        </>
+      )}
 
       {onCancel && (
-        <button type="button" className="btn btn-block mt" onClick={onCancel}>
+        <Button block style={{ marginTop: 16 }} onClick={onCancel}>
           放弃并释放邮箱
-        </button>
+        </Button>
       )}
-    </div>
+    </>
   );
 }

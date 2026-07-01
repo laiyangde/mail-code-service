@@ -1,18 +1,9 @@
-/* M7 Web 前端样式（纯手写，轻量单文件，FR-6）。深色卡片式，移动优先。 */
+/* M7 取码页全局样式：仅保留背景 + 居中容器 + 品牌头；卡片/按钮/表格等交给 antd 暗色主题（main.jsx）。 */
 
 :root {
-  --bg: #0f1115;
-  --card: #1a1d24;
-  --card-2: #21252e;
-  --border: #2c313c;
-  --text: #e6e8ec;
-  --muted: #8b93a1;
-  --accent: #4f8cff;
-  --accent-d: #3a6fd1;
-  --ok: #36c98a;
-  --warn: #f0a73c;
-  --danger: #ef5a5a;
-  --radius: 12px;
+  --mcs-bg: #0f1115;
+  --mcs-accent: #4f8cff;
+  --mcs-text: #e6e8ec;
 }
 
 * {
@@ -21,351 +12,37 @@
 
 body {
   margin: 0;
-  background: var(--bg);
-  color: var(--text);
+  background: var(--mcs-bg);
   font-family:
     -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
-  font-size: 15px;
-  line-height: 1.5;
 }
 
+/* 取码页：全屏居中单卡 */
 .app {
   min-height: 100vh;
   display: flex;
-  flex-direction: column;
   align-items: center;
   justify-content: center;
   padding: 24px 16px;
 }
-
-.card {
+.mcs-card {
   width: 100%;
-  max-width: 460px;
-  background: var(--card);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  padding: 24px;
-  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.35);
+  max-width: 480px;
 }
 
-.brand {
+/* 品牌头（非 antd 组件，单独给色） */
+.mcs-brand {
   display: flex;
   align-items: center;
   gap: 8px;
   font-weight: 600;
   font-size: 16px;
   margin-bottom: 18px;
-  color: var(--text);
+  color: var(--mcs-text);
 }
-.brand .dot {
+.mcs-dot {
   width: 9px;
   height: 9px;
   border-radius: 50%;
-  background: var(--accent);
-}
-
-.title {
-  font-size: 18px;
-  font-weight: 600;
-  margin: 0 0 6px;
-}
-.subtitle {
-  color: var(--muted);
-  margin: 0 0 18px;
-  font-size: 14px;
-}
-
-/* 唯一码展示 */
-.code-chip {
-  display: inline-block;
-  font-family: ui-monospace, 'SFMono-Regular', Consolas, monospace;
-  background: var(--card-2);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 6px 10px;
-  color: var(--accent);
-  word-break: break-all;
-}
-
-/* 按钮 */
-.btn {
-  appearance: none;
-  border: 1px solid var(--border);
-  background: var(--card-2);
-  color: var(--text);
-  font-size: 15px;
-  padding: 11px 18px;
-  border-radius: 9px;
-  cursor: pointer;
-  transition:
-    background 0.15s,
-    border-color 0.15s,
-    opacity 0.15s;
-}
-.btn:hover {
-  border-color: var(--accent);
-}
-.btn:disabled {
-  opacity: 0.55;
-  cursor: not-allowed;
-}
-.btn-primary {
-  background: var(--accent);
-  border-color: var(--accent);
-  color: #fff;
-  font-weight: 600;
-}
-.btn-primary:hover {
-  background: var(--accent-d);
-  border-color: var(--accent-d);
-}
-.btn-block {
-  display: block;
-  width: 100%;
-}
-.btn-sm {
-  padding: 6px 12px;
-  font-size: 13px;
-}
-
-.row {
-  display: flex;
-  gap: 10px;
-  align-items: center;
-}
-.mt {
-  margin-top: 16px;
-}
-.mt-sm {
-  margin-top: 10px;
-}
-
-/* 别名框 */
-.alias-box {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  background: var(--card-2);
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  padding: 12px 14px;
-  margin: 6px 0 4px;
-}
-.alias-text {
-  flex: 1;
-  font-family: ui-monospace, 'SFMono-Regular', Consolas, monospace;
-  font-size: 15px;
-  color: var(--text);
-  word-break: break-all;
-}
-.field-label {
-  font-size: 13px;
-  color: var(--muted);
-  margin-bottom: 2px;
-}
-
-/* 倒计时 */
-.countdown {
-  font-variant-numeric: tabular-nums;
-  font-size: 30px;
-  font-weight: 700;
-  text-align: center;
-  letter-spacing: 1px;
-  margin: 8px 0;
-  color: var(--ok);
-}
-.countdown.warn {
-  color: var(--warn);
-}
-.countdown.over {
-  color: var(--danger);
-}
-
-/* 状态条 */
-.statusbar {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  margin: 18px 0 6px;
-}
-.status-step {
-  flex: 1;
-  text-align: center;
-  font-size: 12px;
-  color: var(--muted);
-  padding-top: 14px;
-  position: relative;
-}
-.status-step::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 9px;
-  height: 9px;
-  border-radius: 50%;
-  background: var(--border);
-}
-.status-step.active {
-  color: var(--accent);
-}
-.status-step.active::before {
-  background: var(--accent);
-}
-.status-step.done {
-  color: var(--ok);
-}
-.status-step.done::before {
-  background: var(--ok);
-}
-
-/* 邮件展示 */
-.mail {
-  background: var(--card-2);
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  overflow: hidden;
-  margin-top: 6px;
-}
-.mail-head {
-  padding: 12px 14px;
-  border-bottom: 1px solid var(--border);
-}
-.mail-row {
-  display: flex;
-  gap: 8px;
-  font-size: 13px;
-  margin: 2px 0;
-}
-.mail-label {
-  color: var(--muted);
-  flex: 0 0 48px;
-}
-.mail-value {
-  color: var(--text);
-  word-break: break-all;
-  flex: 1;
-}
-.mail-subject {
-  font-weight: 600;
-  font-size: 15px;
-  margin: 2px 0 8px;
-}
-.mail-tabs {
-  display: flex;
-  gap: 6px;
-  padding: 10px 14px 0;
-}
-.tab {
-  font-size: 13px;
-  padding: 5px 12px;
-  border-radius: 7px 7px 0 0;
-  cursor: pointer;
-  color: var(--muted);
-  border: 1px solid transparent;
-}
-.tab.active {
-  color: var(--text);
-  background: var(--card);
-  border-color: var(--border);
-  border-bottom-color: var(--card);
-}
-.mail-body {
-  padding: 14px;
-  white-space: pre-wrap;
-  word-break: break-word;
-  font-size: 14px;
-  max-height: 320px;
-  overflow: auto;
-}
-.mail-iframe {
-  width: 100%;
-  height: 320px;
-  border: 0;
-  background: #fff;
-}
-
-/* 便利码高亮 */
-.code-highlight {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  background: rgba(79, 140, 255, 0.12);
-  border: 1px solid var(--accent);
-  border-radius: 10px;
-  padding: 12px 14px;
-  margin-top: 14px;
-}
-.code-highlight .val {
-  flex: 1;
-  font-family: ui-monospace, 'SFMono-Regular', Consolas, monospace;
-  font-size: 22px;
-  font-weight: 700;
-  letter-spacing: 2px;
-  color: var(--accent);
-}
-
-/* 回看列表 */
-.results {
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-  margin-top: 8px;
-}
-.retain {
-  font-size: 13px;
-  color: var(--muted);
-  margin-top: 12px;
-  text-align: center;
-}
-
-/* 提示 / 异常 */
-.hint {
-  color: var(--muted);
-  font-size: 14px;
-}
-.banner {
-  border-radius: 10px;
-  padding: 12px 14px;
-  font-size: 14px;
-  margin-bottom: 14px;
-}
-.banner-error {
-  background: rgba(239, 90, 90, 0.12);
-  border: 1px solid var(--danger);
-  color: #ffb4b4;
-}
-.banner-warn {
-  background: rgba(240, 167, 60, 0.12);
-  border: 1px solid var(--warn);
-  color: #ffd9a3;
-}
-.muted {
-  color: var(--muted);
-}
-.copied {
-  color: var(--ok);
-  font-size: 12px;
-}
-
-/* 加载 */
-.loading {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  color: var(--muted);
-}
-.spinner {
-  width: 18px;
-  height: 18px;
-  border: 2px solid var(--border);
-  border-top-color: var(--accent);
-  border-radius: 50%;
-  animation: spin 0.8s linear infinite;
-}
-@keyframes spin {
-  to {
-    transform: rotate(360deg);
-  }
+  background: var(--mcs-accent);
 }

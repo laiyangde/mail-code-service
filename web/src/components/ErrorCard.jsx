@@ -1,7 +1,8 @@
 /**
- * 错误卡（M7 / FR-6.4）：按错误码展示中文文案与可操作项。
+ * 错误卡（M7 / FR-6.4）：按错误码展示中文文案与可操作项。antd 版。
  * POOL_BUSY（池满）等可重试错误显示重试按钮。
  */
+import { Button, Result } from 'antd';
 import { errorText } from '../errorText.js';
 
 /** 可重试的错误码 */
@@ -18,19 +19,17 @@ export default function ErrorCard({ errCode, errMsg, loading, onRetry }) {
   const { title, hint, kind } = errorText(errCode, errMsg);
   const retryable = RETRYABLE.has(errCode) && onRetry;
   return (
-    <div>
-      <div className={`banner ${kind === 'warn' ? 'banner-warn' : 'banner-error'}`}>{hint}</div>
-      <h1 className="title">{title}</h1>
-      {retryable && (
-        <button
-          type="button"
-          className="btn btn-primary btn-block mt"
-          disabled={loading}
-          onClick={onRetry}
-        >
-          {loading ? '重试中…' : '重试'}
-        </button>
-      )}
-    </div>
+    <Result
+      status={kind === 'warn' ? 'warning' : 'error'}
+      title={title}
+      subTitle={hint}
+      extra={
+        retryable ? (
+          <Button type="primary" loading={loading} onClick={onRetry}>
+            重试
+          </Button>
+        ) : undefined
+      }
+    />
   );
 }

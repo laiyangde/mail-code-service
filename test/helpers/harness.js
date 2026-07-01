@@ -14,7 +14,7 @@ import { createFakeProvider } from './fake-provider.js';
  * @param {object} [opts]
  * @param {number} [opts.accounts] 账号数
  * @param {object} [opts.plan] 覆盖默认套餐字段
- * @param {object} [opts.config] LeaseManager 配置（acquireTimeoutSec 等）
+ * @param {object} [opts.config] LeaseManager 配置（queueTimeoutSec 等）
  */
 export function createHarness({ accounts = 1, plan = {}, config = {} } = {}) {
   const db = openDb(':memory:');

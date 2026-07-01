@@ -1,10 +1,10 @@
 /**
  * 收码三重匹配（C-4 防串号）的**纯判定逻辑**，从 IMAP 收发细节中抽离，便于单测。
  *
- * 命中条件（三者皆须满足）：
- * 1. To = 本租约别名地址（一次性、全域唯一，主隔离键）；
- * 2. From 命中目标发件人（域名 / 通配匹配，不写死单一地址）；
- * 3. 邮件时间 ≥ since（**秒级精筛**，排除别名复用前的历史邮件 —— IMAP SINCE 仅精确到「天」，必须在客户端再筛）。
+ * 命中条件：
+ * 1. To = 本租约别名地址（一次性、全域唯一，主隔离键，**必须**）；
+ * 2. 邮件时间 ≥ since（**秒级精筛**，排除别名复用前的历史邮件，**必须**）；
+ * 3. From 命中目标发件人（域名 / 通配；**可选**——套餐未配 targetSenders 时不校验发件人）。
  */
 
 /**
@@ -68,8 +68,10 @@ export function matchMail(mail, match) {
   // 1. To 命中：收件人集合里有任一等于本别名
   const toHit = (mail.toAddrs || []).some((to) => to === targetTo);
   if (!toHit) return false;
-  // 2. From 命中目标发件人
-  if (!matchSender(mail.fromAddr, match.fromSenders)) return false;
+  // 2. From 命中目标发件人（未配置 targetSenders 则跳过，只按 To + 时间窗匹配）
+  if (Array.isArray(match.fromSenders) && match.fromSenders.length > 0) {
+    if (!matchSender(mail.fromAddr, match.fromSenders)) return false;
+  }
   // 3. 秒级时间窗：邮件时间 ≥ since
   if (!(Number(mail.date) >= Number(match.since))) return false;
   return true;

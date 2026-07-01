@@ -89,5 +89,29 @@ describe('M2 收码三重匹配（C-4 防串号）', () => {
         ),
       ).toBe(true);
     });
+    it('fromSenders 为空 → 只按 To+时间匹配（不校验发件人）', () => {
+      const openMatch = { to: 'alias123@swpu.edu.cn', fromSenders: [], since: 1000 };
+      // 任意发件人，只要 To + 时间命中即接受
+      expect(
+        matchMail(
+          { fromAddr: 'anyone@whatever.com', toAddrs: ['alias123@swpu.edu.cn'], date: 1001 },
+          openMatch,
+        ),
+      ).toBe(true);
+      // To 仍必须命中
+      expect(
+        matchMail(
+          { fromAddr: 'anyone@whatever.com', toAddrs: ['other@swpu.edu.cn'], date: 1001 },
+          openMatch,
+        ),
+      ).toBe(false);
+      // 时间窗仍生效
+      expect(
+        matchMail(
+          { fromAddr: 'anyone@whatever.com', toAddrs: ['alias123@swpu.edu.cn'], date: 999 },
+          openMatch,
+        ),
+      ).toBe(false);
+    });
   });
 });

@@ -21,6 +21,7 @@ function seedActive(h, { id, expiresAt }) {
     startTime: nowSec,
     expiresAt,
     renews: 0,
+    receiving: 1,
     createdAt: now,
   });
   h.store.account.updateStatus('acc1', 'leased', now);
@@ -36,6 +37,32 @@ describe('recoverActiveLeases', () => {
 
     expect(r.recovered).toBe(1);
     expect(h.providers.acc1.hasSub).toBe(true); // bindLease 生效
+    expect(h.store.account.getById('acc1').status).toBe('leased');
+  });
+
+  it('未过期 active 但待确认（receiving=0）：只续超时不连 IMAP', async () => {
+    const h = createHarness();
+    const code = h.issueCode('code-await');
+    h.store.accessCode.updateStatus(code, 'active');
+    h.store.lease.insert({
+      id: 'LA',
+      accessCode: code,
+      plan: 'gh',
+      accountId: 'acc1',
+      alias: 'x@swpu.edu.cn',
+      status: 'active',
+      startTime: nowSec,
+      expiresAt: nowSec + 900,
+      renews: 0,
+      receiving: 0,
+      createdAt: now,
+    });
+    h.store.account.updateStatus('acc1', 'leased', now);
+
+    const r = await h.manager.recoverActiveLeases();
+
+    expect(r.recovered).toBe(1);
+    expect(h.providers.acc1.hasSub).toBe(false); // 未连 IMAP（待确认）
     expect(h.store.account.getById('acc1').status).toBe('leased');
   });
 
@@ -78,6 +105,19 @@ describe('recoverActiveLeases', () => {
     const r = await h.manager.recoverActiveLeases();
 
     expect(r.reconciled).toBe(1);
+    expect(h.store.account.getById('acc1').status).toBe('free');
+  });
+
+  it('未过期 active 但 IMAP 重连失败 → 转超时释放', async () => {
+    const h = createHarness();
+    seedActive(h, { id: 'L1', expiresAt: nowSec + 900 });
+    h.providers.acc1.setFailStart(true); // 模拟按需重连失败
+
+    const r = await h.manager.recoverActiveLeases();
+    await h.flush();
+
+    expect(r.expired).toBe(1);
+    expect(h.store.lease.getById('L1').status).toBe('expired');
     expect(h.store.account.getById('acc1').status).toBe('free');
   });
 });
