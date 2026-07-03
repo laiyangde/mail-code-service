@@ -32,7 +32,8 @@ import adminRoutes from './api/admin.js';
  * @returns {Promise<import('fastify').FastifyInstance>}
  */
 export async function buildServer(services, deps = {}) {
-  const app = Fastify({ loggerInstance: logger });
+  // trustProxy：配了反代来源才取 X-Forwarded-For 的真实客户端 IP（限流按真实 IP 的前提）
+  const app = Fastify({ loggerInstance: logger, trustProxy: config.trustProxy || false });
   const sseHub = deps.sseHub ?? new SseHub();
   const webhook = deps.webhook ?? new WebhookDispatcher(config.webhook);
 
@@ -91,6 +92,14 @@ export async function buildServer(services, deps = {}) {
 
 /** 启动 HTTP 服务并监听配置端口。 */
 async function start() {
+  // 关键签名密钥 fail-fast：缺失则拒绝启动（而非等首个 activate 才 500），部署自检即暴露
+  try {
+    void config.auth.codeSigningSecret;
+  } catch (err) {
+    logger.error({ err: err.message }, '缺少 CODE_SIGNING_SECRET，拒绝启动');
+    process.exit(1);
+  }
+
   const db = getDb();
 
   // 真实 providerFactory：onHealthy/onUnhealthy 是延迟回调，运行时 services 已就绪

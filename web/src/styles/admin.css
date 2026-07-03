@@ -1,0 +1,214 @@
+/*
+ * Admin 后台样式（/admin）。作用域统一以 .mcs-admin / .mcs-gate 收敛。
+ * 结构：布局壳 → Header → 内容容器 → 页内工具条 → 监控统计卡 → 表格/卡片统一 → 登录门。
+ */
+
+.mcs-admin {
+  position: relative;
+  z-index: var(--z-content);
+  min-height: 100dvh;
+}
+
+/* ===== 顶部 Header（吸顶玻璃条） ===== */
+.mcs-admin__header.ant-layout-header {
+  position: sticky;
+  top: 0;
+  z-index: var(--z-header);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid var(--border);
+  background: rgba(11, 17, 32, 0.72);
+  backdrop-filter: blur(14px) saturate(140%);
+  -webkit-backdrop-filter: blur(14px) saturate(140%);
+}
+.mcs-admin__brandwrap {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.mcs-admin__tag {
+  padding: 3px 10px;
+  font-size: 12px;
+  color: var(--text-secondary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  background: rgba(56, 189, 248, 0.06);
+}
+
+/* ===== 内容容器 ===== */
+.mcs-admin__content.ant-layout-content {
+  padding: 28px 24px 48px;
+}
+.mcs-admin__inner {
+  max-width: 1160px;
+  margin: 0 auto;
+}
+.mcs-admin__tabs .ant-tabs-nav {
+  margin-bottom: 22px;
+}
+
+/* ===== 页内工具条 + 标题 ===== */
+.mcs-admin-toolbar {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+}
+.mcs-admin-h {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 20px;
+  color: var(--text);
+}
+.mcs-admin-desc {
+  margin-top: 4px;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+/* ===== 监控统计卡（分组 + 状态色条） ===== */
+.mcs-statgroup {
+  margin-bottom: 22px;
+}
+.mcs-statgroup__label {
+  margin-bottom: 10px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+.mcs-statgrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(152px, 1fr));
+  gap: 14px;
+}
+.mcs-statcard {
+  --tone: var(--text-secondary);
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 16px 16px 16px 20px;
+  border-radius: var(--radius-lg);
+  background: var(--bg-glass);
+  border: 1px solid var(--border);
+  transition:
+    border-color var(--dur) var(--ease-out),
+    transform var(--dur) var(--ease-out);
+}
+.mcs-statcard::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 3px;
+  background: var(--tone);
+  box-shadow: 0 0 16px -2px var(--tone);
+}
+.mcs-statcard:hover {
+  border-color: var(--tone);
+  transform: translateY(-2px);
+}
+.mcs-statcard__value {
+  font-size: 30px;
+  font-weight: 700;
+  line-height: 1.1;
+  color: var(--text);
+}
+.mcs-statcard__label {
+  font-size: 13px;
+  color: var(--text-muted);
+}
+.mcs-statcard--primary {
+  --tone: var(--primary);
+}
+.mcs-statcard--success {
+  --tone: var(--success);
+}
+.mcs-statcard--warning {
+  --tone: var(--warning);
+}
+.mcs-statcard--muted {
+  --tone: #47566f;
+}
+.mcs-statcard--neutral {
+  --tone: #6b7c99;
+}
+.mcs-statcard--primary .mcs-statcard__value {
+  color: var(--primary);
+  text-shadow: var(--glow-text-primary);
+}
+.mcs-statcard--success .mcs-statcard__value {
+  color: var(--success);
+}
+.mcs-statcard--warning .mcs-statcard__value {
+  color: var(--warning);
+}
+
+/* ===== 表格 / 卡片统一质感 ===== */
+.mcs-admin .ant-card {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--bg-glass);
+}
+.mcs-admin .ant-table-wrapper {
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: rgba(9, 14, 26, 0.35);
+}
+.mcs-admin .ant-table {
+  background: transparent;
+}
+.mcs-admin .ant-table-thead > tr > th {
+  font-weight: 600;
+}
+
+/* ===== 登录门（沉浸式，与取码页同源） ===== */
+.mcs-gate {
+  position: relative;
+  z-index: var(--z-content);
+  min-height: 100dvh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 16px;
+}
+.mcs-gate__card.mcs-card {
+  max-width: 400px;
+}
+.mcs-gate__brand {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 22px;
+}
+.mcs-gate .ant-btn-primary {
+  border: none;
+  color: #04121f;
+  font-weight: 600;
+  background: linear-gradient(135deg, #38bdf8, #22d3ee);
+  box-shadow: 0 8px 24px -8px rgba(56, 189, 248, 0.6);
+  transition:
+    filter var(--dur) var(--ease-out),
+    box-shadow var(--dur) var(--ease-out);
+}
+.mcs-gate .ant-btn-primary:hover {
+  filter: brightness(1.06);
+  box-shadow: 0 12px 30px -8px rgba(56, 189, 248, 0.75);
+}
+
+/* ===== 窄屏适配 ===== */
+@media (max-width: 640px) {
+  .mcs-admin__content.ant-layout-content {
+    padding: 20px 14px 40px;
+  }
+  .mcs-admin__tag {
+    display: none;
+  }
+}

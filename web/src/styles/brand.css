@@ -1,0 +1,109 @@
+/*
+ * 品牌标识样式：发光信封徽标 + 字标，取码页与后台复用。三档尺寸（sm/md/lg）。
+ */
+
+.mcs-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.mcs-brand__mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--primary);
+  background: linear-gradient(150deg, rgba(56, 189, 248, 0.18), rgba(34, 211, 238, 0.05));
+  border: 1px solid var(--primary-border);
+  border-radius: 13px;
+  box-shadow:
+    0 0 26px -6px rgba(56, 189, 248, 0.55),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+
+.mcs-brand__pulse {
+  fill: var(--success);
+  transform-origin: center;
+  animation: mcs-brand-pulse 2s var(--ease-in-out) infinite;
+}
+@keyframes mcs-brand-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.3;
+  }
+}
+
+.mcs-brand__text {
+  display: inline-flex;
+  flex-direction: column;
+  line-height: 1.15;
+}
+.mcs-brand__name {
+  font-family: var(--font-display);
+  font-weight: 700;
+  color: var(--text);
+  letter-spacing: 0.02em;
+}
+.mcs-brand__sub {
+  font-family: var(--font-mono);
+  color: var(--text-muted);
+  letter-spacing: 0.14em;
+  margin-top: 3px;
+}
+
+/* ===== 尺寸变体 ===== */
+.mcs-brand--sm .mcs-brand__mark {
+  width: 30px;
+  height: 30px;
+  border-radius: 9px;
+}
+.mcs-brand--sm .mcs-brand__mark svg {
+  width: 18px;
+  height: 18px;
+}
+.mcs-brand--sm .mcs-brand__name {
+  font-size: 15px;
+}
+.mcs-brand--sm .mcs-brand__sub {
+  font-size: 9px;
+}
+
+.mcs-brand--md .mcs-brand__mark {
+  width: 38px;
+  height: 38px;
+}
+.mcs-brand--md .mcs-brand__mark svg {
+  width: 23px;
+  height: 23px;
+}
+.mcs-brand--md .mcs-brand__name {
+  font-size: 18px;
+}
+.mcs-brand--md .mcs-brand__sub {
+  font-size: 10px;
+}
+
+.mcs-brand--lg .mcs-brand__mark {
+  width: 52px;
+  height: 52px;
+  border-radius: 16px;
+}
+.mcs-brand--lg .mcs-brand__mark svg {
+  width: 30px;
+  height: 30px;
+}
+.mcs-brand--lg .mcs-brand__name {
+  font-size: 24px;
+}
+.mcs-brand--lg .mcs-brand__sub {
+  font-size: 11px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mcs-brand__pulse {
+    animation: none !important;
+  }
+}

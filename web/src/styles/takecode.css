@@ -1,0 +1,537 @@
+/*
+ * 取码页样式（/r/:code）。作用域统一以 .app 收敛，避免影响后台。类名前缀统一 mcs-。
+ * 结构：布局与玻璃卡 → 品牌头 → 通用文字 → 码块/邮箱块 → 倒计时 → 排队 → 实时监听雷达
+ * → 收码庆祝 → 验证码高光 → 邮件展示 → 结果版式（超时/错误/回看） → 按钮增强 → 响应式。
+ */
+
+/* ===== 页面布局：全屏居中单卡，内容浮于氛围光球之上 ===== */
+.app {
+  position: relative;
+  z-index: var(--z-content);
+  min-height: 100dvh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 16px;
+}
+
+.mcs-card {
+  position: relative;
+  z-index: var(--z-content);
+  width: 100%;
+  max-width: 500px;
+}
+
+/* 玻璃质感卡：半透明 + 背景模糊 + 深投影 + 顶部内高光 */
+.mcs-card.ant-card {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xl);
+  background: var(--bg-glass);
+  backdrop-filter: blur(18px) saturate(140%);
+  -webkit-backdrop-filter: blur(18px) saturate(140%);
+  box-shadow:
+    var(--shadow-card),
+    inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
+/* 渐变描边高光（用 mask 只保留 1px 边），营造精致发光轮廓 */
+.mcs-card.ant-card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1px;
+  background: linear-gradient(
+    140deg,
+    rgba(56, 189, 248, 0.45),
+    transparent 38%,
+    transparent 68%,
+    rgba(34, 211, 238, 0.28)
+  );
+  -webkit-mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+  opacity: 0.85;
+}
+
+/* ===== 品牌头 + 在线指示 ===== */
+.mcs-card__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 24px;
+}
+.mcs-online {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  font-size: 12px;
+  color: var(--text-secondary);
+  border-radius: var(--radius-pill);
+  background: rgba(34, 197, 94, 0.1);
+  border: 1px solid var(--success-border);
+}
+.mcs-online__dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--success);
+  box-shadow: 0 0 8px var(--success);
+  animation: mcs-blink 2s var(--ease-in-out) infinite;
+}
+@keyframes mcs-blink {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.4;
+  }
+}
+
+/* ===== 通用文字 ===== */
+.mcs-h.ant-typography {
+  margin-top: 0;
+  margin-bottom: 6px;
+  font-weight: 700;
+}
+.mcs-lead.ant-typography {
+  color: var(--text-secondary);
+  margin-bottom: 20px;
+}
+.mcs-hint {
+  margin-top: 12px;
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--text-muted);
+}
+.mcs-field-label {
+  margin-bottom: 6px;
+  font-size: 12px;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+}
+
+/* ===== 唯一码块 / 邮箱块（等宽 + 一键复制） ===== */
+.mcs-codechip,
+.mcs-copyblock {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 18px;
+  padding: 12px 14px;
+  border-radius: var(--radius);
+  background: rgba(9, 14, 26, 0.5);
+  border: 1px solid var(--border);
+  transition: border-color var(--dur) var(--ease-out);
+}
+.mcs-codechip:hover,
+.mcs-copyblock:hover {
+  border-color: var(--primary-border);
+}
+.mcs-codechip__text {
+  font-size: 15px;
+  color: var(--text);
+  word-break: break-all;
+}
+.mcs-copyblock__text {
+  font-size: 16px;
+  font-weight: 500;
+  color: var(--primary);
+  word-break: break-all;
+}
+
+/* ===== 倒计时 ===== */
+.mcs-countdown {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  margin: 6px 0 18px;
+  padding: 14px;
+  border-radius: var(--radius-lg);
+  background: rgba(9, 14, 26, 0.45);
+  border: 1px solid var(--border-subtle);
+}
+.mcs-countdown__label {
+  font-size: 12px;
+  letter-spacing: 0.02em;
+  color: var(--text-muted);
+}
+.mcs-countdown__time {
+  font-size: 40px;
+  font-weight: 700;
+  line-height: 1.1;
+  letter-spacing: 2px;
+  color: var(--success);
+  text-shadow: var(--glow-text-success);
+}
+.mcs-countdown.is-warn .mcs-countdown__time {
+  color: var(--warning);
+  text-shadow: 0 0 18px rgba(251, 191, 36, 0.5);
+}
+.mcs-countdown.is-danger .mcs-countdown__time {
+  color: var(--danger);
+  text-shadow: 0 0 18px rgba(244, 63, 94, 0.5);
+}
+
+/* ===== 排队（只显示位次 + 已排队时长，不做 ETA） ===== */
+.mcs-queue {
+  display: flex;
+  align-items: stretch;
+  margin: 8px 0 4px;
+  padding: 16px;
+  border-radius: var(--radius-lg);
+  background: rgba(9, 14, 26, 0.45);
+  border: 1px solid var(--border-subtle);
+}
+.mcs-queue__stat {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+.mcs-queue__num {
+  font-size: 30px;
+  font-weight: 700;
+  color: var(--primary);
+  text-shadow: var(--glow-text-primary);
+}
+.mcs-queue__cap {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+.mcs-queue__divider {
+  width: 1px;
+  margin: 4px 8px;
+  background: var(--border);
+}
+
+/* ===== 实时监听雷达（收码等待 / 排队共用） ===== */
+.mcs-listening {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin: 4px 0 18px;
+}
+.mcs-listening__radar {
+  position: relative;
+  width: 10px;
+  height: 10px;
+  flex: none;
+}
+.mcs-listening__radar::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: var(--success);
+  box-shadow: 0 0 12px var(--success);
+}
+.mcs-listening__radar::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  border: 2px solid var(--success);
+  animation: mcs-radar 1.8s var(--ease-out) infinite;
+}
+@keyframes mcs-radar {
+  0% {
+    transform: scale(1);
+    opacity: 0.9;
+  }
+  100% {
+    transform: scale(3);
+    opacity: 0;
+  }
+}
+
+/* ===== 收码成功庆祝横幅 ===== */
+.mcs-celebrate {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 18px;
+  padding: 14px 16px;
+  border-radius: var(--radius-lg);
+  background: linear-gradient(150deg, rgba(34, 197, 94, 0.16), transparent 82%);
+  border: 1px solid var(--success-border);
+}
+.mcs-celebrate__badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  flex: none;
+  border-radius: 50%;
+  color: var(--success);
+  background: rgba(34, 197, 94, 0.18);
+  box-shadow: 0 0 22px -4px rgba(34, 197, 94, 0.7);
+  animation: mcs-pop 0.5s var(--ease-spring) both;
+}
+.mcs-celebrate__badge svg {
+  width: 22px;
+  height: 22px;
+}
+.mcs-celebrate__badge path {
+  stroke-dasharray: 26;
+  stroke-dashoffset: 26;
+  animation: mcs-draw 0.5s var(--ease-out) 0.15s forwards;
+}
+.mcs-celebrate__title {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 17px;
+  color: var(--text);
+}
+.mcs-celebrate__sub {
+  margin-top: 2px;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+@keyframes mcs-pop {
+  0% {
+    transform: scale(0.4);
+    opacity: 0;
+  }
+  60% {
+    transform: scale(1.08);
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+@keyframes mcs-draw {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+/* ===== 验证码高光卡（产品「啊哈时刻」） ===== */
+.mcs-otp {
+  position: relative;
+  margin-bottom: 16px;
+  padding: 18px 20px;
+  border-radius: var(--radius-lg);
+  background: linear-gradient(150deg, rgba(34, 197, 94, 0.14), rgba(34, 211, 238, 0.05));
+  border: 1px solid var(--success-border);
+  box-shadow: var(--glow-success);
+  overflow: hidden;
+}
+.mcs-otp__label {
+  margin-bottom: 6px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--success);
+}
+.mcs-otp__row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+}
+.mcs-otp__digits {
+  font-size: 34px;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  color: #eafff3;
+  text-shadow: var(--glow-text-success);
+  word-break: break-all;
+}
+.mcs-otp .ant-typography-copy {
+  flex: none;
+  font-size: 22px;
+  color: var(--success);
+}
+.mcs-otp .ant-typography-copy:hover {
+  color: #4ade80;
+}
+.mcs-otp__hint {
+  margin-top: 8px;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+/* ===== 邮件展示 ===== */
+.mcs-mail {
+  margin-top: 4px;
+}
+.mcs-mailcard.ant-card {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: rgba(9, 14, 26, 0.4);
+}
+.mcs-mailbody {
+  max-height: 320px;
+  overflow: auto;
+  padding: 4px 2px;
+  font-size: 14px;
+  white-space: pre-wrap;
+  word-break: break-word;
+  color: var(--text-secondary);
+}
+.mcs-mailframe {
+  width: 100%;
+  height: 340px;
+  border: 0;
+  border-radius: var(--radius);
+  background: #fff;
+}
+.mcs-copyrow {
+  margin: 12px 0 0;
+}
+
+/* ===== 结果版式（超时 / 错误） ===== */
+.mcs-outcome {
+  text-align: center;
+  padding: 12px 8px 4px;
+}
+.mcs-outcome__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 64px;
+  height: 64px;
+  margin-bottom: 16px;
+  border-radius: 50%;
+}
+.mcs-outcome__icon svg {
+  width: 34px;
+  height: 34px;
+}
+.mcs-outcome__icon--warn {
+  color: var(--warning);
+  background: var(--warning-soft);
+  box-shadow: 0 0 30px -8px rgba(251, 191, 36, 0.6);
+}
+.mcs-outcome__icon--danger {
+  color: var(--danger);
+  background: var(--danger-soft);
+  box-shadow: 0 0 30px -8px rgba(244, 63, 94, 0.6);
+}
+.mcs-outcome__title {
+  margin-bottom: 8px;
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 20px;
+  color: var(--text);
+}
+.mcs-outcome__sub {
+  max-width: 340px;
+  margin: 0 auto;
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--text-secondary);
+}
+
+/* ===== 回看结果列表 ===== */
+.mcs-result-item + .mcs-result-item {
+  margin-top: 20px;
+  padding-top: 20px;
+  border-top: 1px solid var(--border-subtle);
+}
+.mcs-retain {
+  margin-top: 16px;
+  text-align: center;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+}
+
+/* ===== 状态条间距 ===== */
+.mcs-steps {
+  margin: 4px 0 18px;
+}
+
+/* ===== 按钮增强（仅取码页作用域） ===== */
+.app .ant-typography-copy {
+  color: var(--primary);
+  transition: color var(--dur-fast) var(--ease-out);
+}
+.app .ant-typography-copy:hover {
+  color: var(--primary-hover);
+}
+.app .ant-btn-primary {
+  border: none;
+  color: #04121f;
+  font-weight: 600;
+  background: linear-gradient(135deg, #38bdf8, #22d3ee);
+  box-shadow: 0 8px 24px -8px rgba(56, 189, 248, 0.6);
+  transition:
+    transform var(--dur-fast) var(--ease-out),
+    box-shadow var(--dur) var(--ease-out),
+    filter var(--dur) var(--ease-out);
+}
+.app .ant-btn-primary:hover {
+  filter: brightness(1.06);
+  box-shadow: 0 12px 30px -8px rgba(56, 189, 248, 0.75);
+}
+.app .ant-btn-primary:active {
+  transform: translateY(1px);
+}
+.mcs-cta.ant-btn {
+  margin-top: 4px;
+  height: 48px;
+  font-size: 15px;
+}
+.mcs-cta--inline.ant-btn {
+  display: block;
+  max-width: 260px;
+  margin: 20px auto 0;
+}
+.mcs-ghost-btn.ant-btn {
+  margin-top: 14px;
+  color: var(--text-secondary);
+  background: transparent;
+  border-color: var(--border);
+  transition: all var(--dur) var(--ease-out);
+}
+.mcs-ghost-btn.ant-btn:hover {
+  color: var(--danger);
+  border-color: var(--danger);
+  background: var(--danger-soft);
+}
+
+/* ===== 窄屏适配 ===== */
+@media (max-width: 480px) {
+  .app {
+    padding: 24px 12px;
+  }
+  .mcs-card.ant-card {
+    border-radius: var(--radius-lg);
+  }
+  .mcs-otp__digits {
+    font-size: 27px;
+  }
+  .mcs-countdown__time {
+    font-size: 34px;
+  }
+  .mcs-queue__num {
+    font-size: 26px;
+  }
+}
+
+/* ===== 尊重减少动态效果 ===== */
+@media (prefers-reduced-motion: reduce) {
+  .mcs-listening__radar::after,
+  .mcs-online__dot,
+  .mcs-celebrate__badge {
+    animation: none !important;
+  }
+  .mcs-celebrate__badge path {
+    animation: none !important;
+    stroke-dashoffset: 0;
+  }
+}

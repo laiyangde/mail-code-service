@@ -48,6 +48,11 @@ export const config = {
   port: intEnv('PORT', 8080),
   /** 运行态数据目录：SQLite 库文件与会话缓存落于此 */
   dataDir: optionalEnv('SESSION_DATA_DIR', './data'),
+  /**
+   * 反向代理可信来源（如 '127.0.0.1' / '10.0.0.0/8' / 逗号列表）。空=无反代（req.ip 取直连）。
+   * 配置后 Fastify 才信任 X-Forwarded-For 取真实客户端 IP——限流按真实 IP 生效的前提（防 XFF 伪造：勿设 true）。
+   */
+  trustProxy: optionalEnv('TRUST_PROXY', ''),
 
   /** 调度默认值，单个 plan 可覆盖（lease_ttl_sec 等列） */
   lease: {
@@ -83,6 +88,13 @@ export const config = {
     },
     get adminToken() {
       return optionalEnv('ADMIN_TOKEN', ''); // Admin：Authorization: Bearer <token>
+    },
+    /**
+     * 唯一码签名密钥（HMAC）。**必填**：签发/验证 code 时惰性校验，缺失即抛错。
+     * 一经上线**不可更改**，否则历史签发的 code 全部验签失败而失效。明文只存 .env（NFR-1）。
+     */
+    get codeSigningSecret() {
+      return requireEnv('CODE_SIGNING_SECRET');
     },
   },
 

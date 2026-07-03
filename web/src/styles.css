@@ -1,48 +1,9 @@
-/* M7 取码页全局样式：仅保留背景 + 居中容器 + 品牌头；卡片/按钮/表格等交给 antd 暗色主题（main.jsx）。 */
-
-:root {
-  --mcs-bg: #0f1115;
-  --mcs-accent: #4f8cff;
-  --mcs-text: #e6e8ec;
-}
-
-* {
-  box-sizing: border-box;
-}
-
-body {
-  margin: 0;
-  background: var(--mcs-bg);
-  font-family:
-    -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
-}
-
-/* 取码页：全屏居中单卡 */
-.app {
-  min-height: 100vh;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 24px 16px;
-}
-.mcs-card {
-  width: 100%;
-  max-width: 480px;
-}
-
-/* 品牌头（非 antd 组件，单独给色） */
-.mcs-brand {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-weight: 600;
-  font-size: 16px;
-  margin-bottom: 18px;
-  color: var(--mcs-text);
-}
-.mcs-dot {
-  width: 9px;
-  height: 9px;
-  border-radius: 50%;
-  background: var(--mcs-accent);
-}
+/*
+ * 前端设计系统入口。字体在 index.html 用 <link> + preconnect 加载（不在此 @import，避免阻塞）。
+ * 分层引入：设计令牌 → 全局 base → 取码页 → 后台。
+ */
+@import './styles/tokens.css';
+@import './styles/base.css';
+@import './styles/brand.css';
+@import './styles/takecode.css';
+@import './styles/admin.css';

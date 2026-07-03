@@ -174,7 +174,9 @@ export class LeaseManager {
     // 1. setAlias（I/O，执行器外，不阻塞其它账号）
     let setResult;
     try {
-      setResult = await provider.setAlias(generateAlias(provider.capabilities().aliasRule));
+      // 顺序游标由 store 原子推进（同步单连接，无 TOCTOU）；据此生成拟真姓名式别名
+      const cursor = this.store.aliasIndex.advance();
+      setResult = await provider.setAlias(generateAlias(provider.capabilities().aliasRule, cursor));
     } catch (err) {
       await this.exec.submit(() => this._abortActivation(account.id, pendingLeaseId, accessCode));
       throw err;

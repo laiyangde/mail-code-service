@@ -11,6 +11,7 @@ import { ok, fail, sendError } from './response.js';
 import { leaseView } from './views.js';
 import { ApiError, ErrorCode } from '../errors.js';
 import { isLeaseTerminal } from '../core/state-machine.js';
+import { verifyCodeShape } from '../access/code-gen.js';
 import { config } from '../config.js';
 
 /** 终态事件（generator 收到即收尾）。rejected=排队兜底超时失败 */
@@ -18,11 +19,14 @@ const TERMINAL_EVENTS = new Set(['received', 'expired', 'cancelled', 'rejected']
 
 /**
  * 构造租约视图；`pending` 时从队列算出 queueAhead 一并附上（前端显示「前面还有几人」）。
+ * 并按套餐前缀查出展示名 planName（前端展示套餐名而非前缀）。
  * @param {import('../lease/lease-manager.js').LeaseManager} manager
  * @param {object} lease
  */
 function viewOf(manager, lease) {
-  const extra = lease.status === 'pending' ? { queueAhead: manager.queuePosition(lease.id) } : {};
+  const planName = manager.store.plan.getByPrefix(lease.plan)?.name;
+  const extra = { planName };
+  if (lease.status === 'pending') extra.queueAhead = manager.queuePosition(lease.id);
   return leaseView(lease, extra);
 }
 
@@ -90,7 +94,7 @@ export default async function publicRoutes(app, opts) {
   const activateRateLimit = {
     max: config.rateLimit.activateMax,
     timeWindow: config.rateLimit.windowSec * 1000,
-    keyGenerator: (req) => `${req.ip}:${req.body?.code ?? ''}`,
+    keyGenerator: (req) => req.ip, // 按真实客户端 IP（依赖 trustProxy）；不含 code，杜绝"换 code 绕过 IP 限流"
   };
 
   // 申请邮箱（FR-6.1：用户点「申请邮箱」才调用）。分流 active / pending 排队 / used 回看；错误 → 错误码
@@ -98,6 +102,10 @@ export default async function publicRoutes(app, opts) {
     const code = req.body?.code;
     if (typeof code !== 'string' || !code) {
       return sendError(reply, 400, 'BAD_REQUEST', '缺少 code');
+    }
+    // 自验证前置：伪造/枚举码在进单飞锁与串行执行器、查库之前直接拒（防 DoS 放大）
+    if (!verifyCodeShape(code)) {
+      return sendError(reply, 404, ErrorCode.CODE_NOT_FOUND, '唯一码不存在');
     }
     try {
       const result = await manager.createLease(code);
@@ -155,6 +163,10 @@ export default async function publicRoutes(app, opts) {
   // 收码结果回看（FR-2.7/6.9）：保留期内返回历史整封邮件
   app.get('/codes/:code/results', async (req, reply) => {
     const code = req.params.code;
+    // 自验证前置：伪造/枚举码直接拒，不进查库路径
+    if (!verifyCodeShape(code)) {
+      return sendError(reply, 404, ErrorCode.CODE_NOT_FOUND, '唯一码不存在');
+    }
     try {
       const verdict = accessService.classify(code); // used→results；error→抛对应码
       if (verdict.kind === 'used') {

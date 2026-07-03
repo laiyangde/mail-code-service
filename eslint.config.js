@@ -4,7 +4,7 @@ import globals from 'globals';
 /** ESLint 9 flat config（ESM 工程，中文注释，遵循全局 CLAUDE.md） */
 export default [
   {
-    ignores: ['node_modules/', 'data/', 'dist/', 'web/dist/'],
+    ignores: ['node_modules/', 'data/', 'dist/', 'web/dist/', '.claude/'],
   },
   js.configs.recommended,
   {

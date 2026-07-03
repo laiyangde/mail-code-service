@@ -7,6 +7,7 @@ import { createAccessCodeRepo } from './access-code.repo.js';
 import { createLeaseRepo } from './lease.repo.js';
 import { createProcessedMailRepo } from './processed-mail.repo.js';
 import { createAuditLogRepo } from './audit-log.repo.js';
+import { createAliasIndexRepo } from './alias-index.repo.js';
 
 /**
  * @param {import('better-sqlite3').Database} db 已 applySchema 的连接
@@ -21,5 +22,6 @@ export function createStore(db) {
     lease: createLeaseRepo(db),
     processedMail: createProcessedMailRepo(db),
     auditLog: createAuditLogRepo(db),
+    aliasIndex: createAliasIndexRepo(db),
   };
 }

@@ -1,13 +1,12 @@
 /**
- * 整封邮件展示（M7 / FR-4.3、FR-6.3）：服务端交付整封邮件，前端原样展示。antd 版。
+ * 整封邮件展示（M7 / FR-4.3、FR-6.3）：服务端交付整封邮件，前端原样展示。验证码高光卡。
  *
  * 安全（不变的红线）：`mail.html` 来自第三方发件人，**严禁 innerHTML 直插**。HTML 用
  * `<iframe sandbox srcDoc>`（不含 allow-scripts）隔离渲染，杜绝脚本执行（XSS 防护）。
- * antd 无安全 HTML 渲染组件，故仅用 antd 包裹外层，iframe 内核与 sandbox 属性原样保留。
  * 默认优先纯文本；`code` 为后端尽力提取的便利字段，可能为 null（FR-4）。
  */
 import { useState } from 'react';
-import { Alert, Card, Descriptions, Tabs, Typography } from 'antd';
+import { Card, Descriptions, Tabs, Typography } from 'antd';
 
 const { Text, Paragraph } = Typography;
 
@@ -29,29 +28,16 @@ export default function MailView({ mail, code }) {
   // 默认纯文本；无文本但有 HTML 时默认 HTML
   const [tab, setTab] = useState(hasText ? 'text' : 'html');
 
-  const textBody = (
-    <div
-      style={{
-        whiteSpace: 'pre-wrap',
-        wordBreak: 'break-word',
-        maxHeight: 320,
-        overflow: 'auto',
-        fontSize: 14,
-        padding: '4px 0',
-      }}
-    >
-      {mail.text || '(无正文)'}
-    </div>
-  );
+  const textBody = <div className="mcs-mailbody">{mail.text || '(无正文)'}</div>;
 
   const htmlBody = (
     // sandbox 空值：禁脚本/表单/同源，仅渲染静态富文本（XSS 隔离）
     <iframe
+      className="mcs-mailframe"
       sandbox=""
       referrerPolicy="no-referrer"
       title="邮件内容"
       srcDoc={mail.html}
-      style={{ width: '100%', height: 320, border: 0, background: '#fff', borderRadius: 8 }}
     />
   );
 
@@ -60,26 +46,23 @@ export default function MailView({ mail, code }) {
   if (hasHtml) tabItems.push({ key: 'html', label: 'HTML', children: htmlBody });
 
   return (
-    <div>
+    <div className="mcs-mail">
       {code ? (
-        <Alert
-          type="info"
-          showIcon
-          style={{ marginBottom: 12 }}
-          message={
-            <Text copyable={{ text: code }} strong style={{ fontSize: 20, letterSpacing: 2 }}>
-              {code}
-            </Text>
-          }
-          description="已自动识别到验证码，点击复制图标即可"
-        />
+        <div className="mcs-otp">
+          <div className="mcs-otp__label">验证码</div>
+          <div className="mcs-otp__row">
+            <span className="mcs-otp__digits mcs-mono">{code}</span>
+            <Text className="mcs-otp__copy" copyable={{ text: code }} />
+          </div>
+          <div className="mcs-otp__hint">已自动识别 · 点击右侧图标复制</div>
+        </div>
       ) : (
-        <Paragraph type="secondary">
+        <Paragraph type="secondary" className="mcs-hint">
           未自动识别到验证码，请从下方邮件内容中查看验证码或激活链接。
         </Paragraph>
       )}
 
-      <Card size="small" title={mail.subject || '(无主题)'}>
+      <Card size="small" className="mcs-mailcard" title={mail.subject || '(无主题)'}>
         <Descriptions
           size="small"
           column={1}
@@ -97,7 +80,7 @@ export default function MailView({ mail, code }) {
       </Card>
 
       {hasText && (
-        <Paragraph style={{ marginTop: 10, marginBottom: 0 }}>
+        <Paragraph className="mcs-copyrow">
           <Text copyable={{ text: mail.text }} type="secondary">
             复制邮件正文
           </Text>

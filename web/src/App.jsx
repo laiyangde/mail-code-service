@@ -1,5 +1,5 @@
 /**
- * 取码主页面（M7 / FR-6）：解析 `/r/:code`，按租约状态在单卡内切换视图。antd 容器。
+ * 取码主页面（M7 / FR-6）：解析 `/r/:code`，按租约状态在单卡内切换视图。玻璃卡 + 氛围光球容器。
  *
  * 阶段（phase）：
  * - idle      初始，仅预填唯一码，点「申请邮箱」才占用（FR-6.1）
@@ -10,12 +10,13 @@
  * - used      回看历史收码（不新建租约）
  * - error     业务错误（按 errCode 文案）
  *
- * 仅展示层迁移到 antd；状态机、useLeaseStream/useCountdown、api 解析逻辑保持不变。
+ * 本次仅重塑展示层（容器 / 品牌头 / 收码成功横幅），状态机、useLeaseStream、api 解析逻辑不变。
  */
 import { useCallback, useState } from 'react';
-import { Alert, Card, Typography } from 'antd';
+import { Card, Typography } from 'antd';
 import { activate, renewLease, cancelLease, confirmSent, ApiError } from './api.js';
 import { useLeaseStream } from './hooks/useLeaseStream.js';
+import Brand from './components/Brand.jsx';
 import ApplyCard from './components/ApplyCard.jsx';
 import ActiveCard from './components/ActiveCard.jsx';
 import MailView from './components/MailView.jsx';
@@ -132,11 +133,22 @@ export default function App() {
 
   return (
     <div className="app">
-      <Card className="mcs-card">
-        <div className="mcs-brand">
-          <span className="mcs-dot" />
-          邮箱接码
-        </div>
+      {/* 氛围光球 + 网格叠加，浮于内容之下 */}
+      <div className="mcs-aurora" aria-hidden="true">
+        <span className="mcs-orb mcs-orb--cyan" />
+        <span className="mcs-orb mcs-orb--teal" />
+        <span className="mcs-orb mcs-orb--blue" />
+      </div>
+      <div className="mcs-grid-overlay" aria-hidden="true" />
+
+      <Card className="mcs-card mcs-fade-in" variant="borderless">
+        <header className="mcs-card__head">
+          <Brand size="md" />
+          <span className="mcs-online" title="服务运行中">
+            <span className="mcs-online__dot" />
+            在线
+          </span>
+        </header>
         {renderBody()}
       </Card>
     </div>
@@ -145,14 +157,14 @@ export default function App() {
   function renderBody() {
     if (!code) {
       return (
-        <>
-          <Title level={4} style={{ marginTop: 0 }}>
+        <div className="mcs-fade-in">
+          <Title level={4} className="mcs-h">
             链接无效
           </Title>
-          <Paragraph type="secondary">
-            请使用包含唯一码的完整链接进入（形如 /r/你的唯一码）。
+          <Paragraph type="secondary" className="mcs-lead">
+            请使用包含卡密的完整链接进入（形如 /r/你的卡密）。
           </Paragraph>
-        </>
+        </div>
       );
     }
     switch (phase) {
@@ -165,10 +177,28 @@ export default function App() {
         );
       case 'received':
         return (
-          <>
-            <Alert type="success" showIcon message="已收到邮件！" style={{ marginBottom: 14 }} />
+          <div className="mcs-fade-in">
+            <div className="mcs-celebrate">
+              <span className="mcs-celebrate__badge" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path
+                    d="M5 12.5 L10 17.5 L19 7.5"
+                    stroke="currentColor"
+                    strokeWidth="2.4"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                </svg>
+              </span>
+              <div className="mcs-celebrate__text">
+                <div className="mcs-celebrate__title">收码成功</div>
+                <div className="mcs-celebrate__sub">
+                  {lease.code ? '邮件已送达，已为你自动识别验证码' : '邮件已送达，请在下方查看内容'}
+                </div>
+              </div>
+            </div>
             <MailView mail={lease.mail} code={lease.code ?? null} />
-          </>
+          </div>
         );
       case 'expired':
         return (

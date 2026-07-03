@@ -79,6 +79,14 @@ CREATE TABLE IF NOT EXISTS audit_log (
   detail TEXT                                   -- 附加详情（脱敏文本，不含密码/cookie/IMAP 密码）
 );
 
+-- 别名生成游标：顺序遍历「姓氏 × 名字」拼音字典的持久化索引（单行表，FR-3.3）
+-- id 固定为 1（CHECK 锁死单行）；每次取码前原子推进，重启后从上次位置续遍历，避免重复姓名组合
+CREATE TABLE IF NOT EXISTS alias_index (
+  id               INTEGER PRIMARY KEY CHECK (id = 1),  -- 恒为 1：全表仅一行，杜绝多游标
+  surname_index    INTEGER NOT NULL DEFAULT 0,          -- 当前姓氏下标（越界由 repo 取模回绕）
+  given_name_index INTEGER NOT NULL DEFAULT 0           -- 当前名字下标（内层递增，回绕时进位到姓氏）
+);
+
 -- ── 护栏索引（即便应用有 bug 也兜底，FR-0）──
 -- 同码 / 同账号 至多一个活跃租约（INV-1 / INV-2）
 -- partial unique index：仅约束 status='active' 行，DB 层直接拒绝第二个活跃租约（M2）

@@ -33,7 +33,8 @@ export function mailView(meta) {
 /**
  * 租约对外视图。`pending` 时附排队位次与入队时刻；`received` 时附整封邮件与可选便利码。
  * @param {object} lease lease 行
- * @param {{ queueAhead?: number }} [extra] pending 时的补充（queueAhead 由调用方从队列算出）
+ * @param {{ queueAhead?: number, planName?: string }} [extra] 调用方补充：
+ *   queueAhead（pending 时队列位次）、planName（套餐展示名，供前端展示；缺省回退前缀）
  * @returns {object}
  */
 export function leaseView(lease, extra = {}) {
@@ -42,7 +43,8 @@ export function leaseView(lease, extra = {}) {
     status: lease.status,
     alias: lease.alias,
     expiresAt: secToMs(lease.expiresAt),
-    plan: lease.plan,
+    plan: lease.plan, // 套餐前缀（内部标识，前端不直接展示）
+    planName: extra.planName ?? lease.plan, // 套餐展示名（面向用户）；无则回退前缀
     renews: lease.renews,
   };
   if (lease.status === 'pending') {

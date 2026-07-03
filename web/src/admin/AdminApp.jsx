@@ -1,10 +1,11 @@
 /**
  * 管理后台主界面（B2/B3）：未登录显示密钥门，登录后 Layout + Tabs（监控/账号/套餐/唯一码）。
- * 固定密钥进入（localStorage），任一 Tab 遇 401 经 onUnauthorized 统一登出。
+ * 固定密钥进入（localStorage），任一 Tab 遇 401 经 onUnauthorized 统一登出。品牌化 Header。
  */
 import { useCallback, useState } from 'react';
-import { Button, Layout, Tabs, Typography } from 'antd';
+import { Button, Layout, Tabs } from 'antd';
 import { getToken, clearToken } from './adminApi.js';
+import Brand from '../components/Brand.jsx';
 import TokenGate from './TokenGate.jsx';
 import Dashboard from './Dashboard.jsx';
 import Accounts from './Accounts.jsx';
@@ -32,23 +33,17 @@ export default function AdminApp() {
   ];
 
   return (
-    <Layout style={{ minHeight: '100vh' }}>
-      <Header
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          padding: '0 24px',
-        }}
-      >
-        <Typography.Text strong style={{ fontSize: 16, color: '#fff' }}>
-          邮箱接码 · 管理后台
-        </Typography.Text>
+    <Layout className="mcs-admin">
+      <Header className="mcs-admin__header">
+        <div className="mcs-admin__brandwrap">
+          <Brand size="sm" />
+          <span className="mcs-admin__tag">管理后台</span>
+        </div>
         <Button onClick={logout}>退出</Button>
       </Header>
-      <Content style={{ padding: 24 }}>
-        <div style={{ maxWidth: 1120, margin: '0 auto' }}>
-          <Tabs items={items} />
+      <Content className="mcs-admin__content">
+        <div className="mcs-admin__inner">
+          <Tabs items={items} className="mcs-admin__tabs" />
         </div>
       </Content>
     </Layout>

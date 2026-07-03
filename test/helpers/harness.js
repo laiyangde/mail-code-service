@@ -9,6 +9,10 @@ import { openDb, applySchema } from '../../src/store/db.js';
 import { createStore } from '../../src/store/index.js';
 import { buildServices } from '../../src/services.js';
 import { createFakeProvider } from './fake-provider.js';
+import { generateCode } from '../../src/access/code-gen.js';
+
+// 测试环境注入唯一码签名密钥（生产由 .env 提供）；置于装配前，确保 generateCode/verifyCodeShape 可用
+process.env.CODE_SIGNING_SECRET ??= 'test-code-signing-secret';
 
 /**
  * @param {object} [opts]
@@ -57,8 +61,9 @@ export function createHarness({ accounts = 1, plan = {}, config = {} } = {}) {
   const services = buildServices({ db, providerFactory, leaseConfig: config });
   const { store, exec, pool, hub, accessService, manager } = services;
 
-  /** 发一个唯一码 */
-  function issueCode(code = 'gh-test', quotaLeft = p.quota) {
+  /** 发一个唯一码（生成合法签名码，令 API 前置验签路径也可通过；首参仅作调用处语义标签） */
+  function issueCode(_label, quotaLeft = p.quota) {
+    const code = generateCode(p.prefix);
     store.accessCode.insert({ code, prefix: p.prefix, status: 'unused', quotaLeft, issuedAt: now });
     return code;
   }

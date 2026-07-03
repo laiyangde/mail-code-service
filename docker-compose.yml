@@ -10,7 +10,8 @@ services:
     restart: unless-stopped
     init: true # 回收 Chromium 子进程（与镜像内 tini 双保险）
     ports:
-      - '8080:8080'
+      # 仅绑宿主机回环：不直接暴露公网，由宿主机 Nginx 反代 + TLS 终止（生产安全基线）
+      - '127.0.0.1:8080:8080'
     env_file:
       - .env
     volumes:

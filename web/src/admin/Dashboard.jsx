@@ -1,8 +1,9 @@
 /**
  * 监控面板（B3 / FR-8.4）：展示 GET /stats 的池水位、排队、SSE、租约计数。手动刷新（低频自用）。
+ * 分组自绘统计卡（账号池 / 租约 / 实时），带状态色条与等宽数字，数据感更强。
  */
 import { useCallback, useEffect, useState } from 'react';
-import { Button, Card, Col, Row, Spin, Statistic } from 'antd';
+import { Button, Spin } from 'antd';
 import { ReloadOutlined } from '@ant-design/icons';
 import { adminApi } from './adminApi.js';
 import { useApiError } from './useApiError.js';
@@ -34,36 +35,61 @@ export default function Dashboard({ onUnauthorized }) {
   const pool = stats?.pool ?? {};
   const leases = stats?.leases ?? {};
 
-  /** 统计卡片：[标题, 值, 颜色?] */
-  const cards = [
-    ['账号总数', pool.total ?? 0],
-    ['空闲', pool.free ?? 0, '#36c98a'],
-    ['占用', pool.leased ?? 0, '#4f8cff'],
-    ['不健康', pool.unhealthy ?? 0, '#f0a73c'],
-    ['禁用', pool.disabled ?? 0],
-    ['排队数', stats?.queue ?? 0],
-    ['SSE 连接', stats?.sse ?? 0],
-    ['活跃租约', leases.active ?? 0, '#4f8cff'],
-    ['已收码', leases.received ?? 0, '#36c98a'],
-    ['已超时', leases.expired ?? 0],
+  /** 分组统计：tone 决定状态色条与数字高亮 */
+  const groups = [
+    {
+      label: '账号池',
+      items: [
+        { label: '账号总数', value: pool.total ?? 0, tone: 'neutral' },
+        { label: '空闲', value: pool.free ?? 0, tone: 'success' },
+        { label: '占用', value: pool.leased ?? 0, tone: 'primary' },
+        { label: '不健康', value: pool.unhealthy ?? 0, tone: 'warning' },
+        { label: '禁用', value: pool.disabled ?? 0, tone: 'muted' },
+      ],
+    },
+    {
+      label: '租约',
+      items: [
+        { label: '活跃租约', value: leases.active ?? 0, tone: 'primary' },
+        { label: '已收码', value: leases.received ?? 0, tone: 'success' },
+        { label: '已超时', value: leases.expired ?? 0, tone: 'muted' },
+      ],
+    },
+    {
+      label: '实时',
+      items: [
+        { label: '排队数', value: stats?.queue ?? 0, tone: 'warning' },
+        { label: 'SSE 连接', value: stats?.sse ?? 0, tone: 'primary' },
+      ],
+    },
   ];
 
   return (
-    <Spin spinning={loading}>
-      <div style={{ marginBottom: 16 }}>
+    <div className="mcs-admin-page">
+      <div className="mcs-admin-toolbar">
+        <div>
+          <div className="mcs-admin-h">运行监控</div>
+          <div className="mcs-admin-desc">账号池水位、租约与实时连接概览</div>
+        </div>
         <Button icon={<ReloadOutlined />} onClick={load}>
           刷新
         </Button>
       </div>
-      <Row gutter={[16, 16]}>
-        {cards.map(([title, value, color]) => (
-          <Col xs={12} sm={8} md={6} key={title}>
-            <Card>
-              <Statistic title={title} value={value} valueStyle={color ? { color } : undefined} />
-            </Card>
-          </Col>
+      <Spin spinning={loading}>
+        {groups.map((g) => (
+          <section key={g.label} className="mcs-statgroup">
+            <div className="mcs-statgroup__label">{g.label}</div>
+            <div className="mcs-statgrid">
+              {g.items.map((it) => (
+                <div key={it.label} className={`mcs-statcard mcs-statcard--${it.tone}`}>
+                  <span className="mcs-statcard__value mcs-mono">{it.value}</span>
+                  <span className="mcs-statcard__label">{it.label}</span>
+                </div>
+              ))}
+            </div>
+          </section>
         ))}
-      </Row>
-    </Spin>
+      </Spin>
+    </div>
   );
 }

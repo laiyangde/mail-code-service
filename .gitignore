@@ -19,3 +19,6 @@ web/dist/
 .DS_Store
 .idea/
 .vscode/
+
+# Claude Code 本地配置（不入库）
+.claude/

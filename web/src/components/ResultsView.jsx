@@ -1,8 +1,8 @@
 /**
  * 收码结果回看（M7 / FR-6.9）：`used` 态唯一码在保留期内只读展示历史整封邮件，
- * 并显示距 `retainUntil` 的剩余保留时间。不新建租约、不消费配额（后端保证）。antd 版。
+ * 并显示距 `retainUntil` 的剩余保留时间。不新建租约、不消费配额（后端保证）。
  */
-import { Divider, Typography } from 'antd';
+import { Typography } from 'antd';
 import MailView from './MailView.jsx';
 
 const { Title, Paragraph } = Typography;
@@ -27,25 +27,26 @@ function fmtRemain(ms) {
 export default function ResultsView({ results, retainUntil }) {
   const remain = retainUntil ? retainUntil - Date.now() : 0;
   return (
-    <>
-      <Title level={4} style={{ marginTop: 0 }}>
+    <div className="mcs-fade-in">
+      <Title level={4} className="mcs-h">
         已收到的邮件
       </Title>
-      <Paragraph type="secondary">该唯一码已完成收码，以下为历史邮件（只读）。</Paragraph>
+      <Paragraph type="secondary" className="mcs-lead">
+        该卡密已完成收码，以下为历史邮件（只读）。
+      </Paragraph>
 
-      {results.length === 0 && <Paragraph type="secondary">暂无收码记录。</Paragraph>}
+      {results.length === 0 && (
+        <Paragraph type="secondary" className="mcs-hint">
+          暂无收码记录。
+        </Paragraph>
+      )}
       {results.map((r, i) => (
-        <div key={i}>
-          {i > 0 && <Divider />}
+        <div key={i} className="mcs-result-item">
           <MailView mail={r} code={r.code ?? null} />
         </div>
       ))}
 
-      {retainUntil && (
-        <Paragraph type="secondary" style={{ textAlign: 'center', marginTop: 12, marginBottom: 0 }}>
-          保留期剩余：{fmtRemain(remain)}
-        </Paragraph>
-      )}
-    </>
+      {retainUntil && <div className="mcs-retain">保留期剩余 · {fmtRemain(remain)}</div>}
+    </div>
   );
 }
