@@ -15,11 +15,12 @@ WORKDIR /app
 ENV CLOAKBROWSER_CACHE_DIR=/opt/cloakbrowser
 
 COPY package*.json ./
-RUN npm ci
+RUN npm ci --registry=https://registry.npmmirror.com
 
 COPY . .
+# 注意：cloakbrowser 的 Chromium 不在镜像内构建（国内下载 GitHub 大文件不稳定），改为
+# 宿主机预置 + docker-compose 挂载到 /opt/cloakbrowser（见 docs/部署文档.md「cloakbrowser 预置」）。
 RUN npm run web:build \
-  && npx cloakbrowser install \
   && npm prune --omit=dev
 
 # ───────────────────────── runtime ─────────────────────────
@@ -33,8 +34,11 @@ ENV NODE_ENV=production \
     CLOAKBROWSER_AUTO_UPDATE=false
 
 # Chromium 运行库 + Xvfb（有头登录）+ 字体（避免 canvas 指纹异常）+ tini
-RUN apt-get update && apt-get install -y --no-install-recommends \
-      tini xvfb \
+# 先把 Debian 源换成国内镜像（deb.debian.org 国内下载 Chromium 库/字体极慢）
+RUN sed -i 's|deb.debian.org|mirrors.aliyun.com|g; s|security.debian.org|mirrors.aliyun.com|g' /etc/apt/sources.list.d/debian.sources 2>/dev/null || true; \
+    sed -i 's|deb.debian.org|mirrors.aliyun.com|g; s|security.debian.org|mirrors.aliyun.com|g' /etc/apt/sources.list 2>/dev/null || true; \
+    apt-get update && apt-get install -y --no-install-recommends \
+      tini xvfb xauth \
       libnss3 libnspr4 libatk1.0-0 libatk-bridge2.0-0 libcups2 libdrm2 \
       libxkbcommon0 libxcomposite1 libxdamage1 libxfixes3 libxrandr2 libgbm1 \
       libasound2 libpango-1.0-0 libcairo2 libatspi2.0-0 libxshmfence1 \
@@ -42,11 +46,12 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 # 复用 builder 已编译的依赖与产物（native 模块免重编）
+# 复用 builder 已编译的依赖与产物（native 模块免重编）。
+# cloakbrowser 的 Chromium 由 docker-compose 挂载 /opt/cloakbrowser 提供（宿主机预置）。
 COPY --from=builder /app/node_modules ./node_modules
-COPY --from=builder /opt/cloakbrowser /opt/cloakbrowser
 COPY package*.json ./
 COPY src ./src
-COPY web/dist ./web/dist
+COPY --from=builder /app/web/dist ./web/dist
 
 EXPOSE 8080
 VOLUME ["/app/data"]
@@ -56,5 +61,5 @@ HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
   CMD node -e "fetch('http://127.0.0.1:'+(process.env.PORT||8080)+'/healthz').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
 
 # tini 回收子进程；xvfb-run 提供虚拟显示（仅登录偶发开浏览器时用到）
-ENTRYPOINT ["tini", "--"]
+ENTRYPOINT ["tini", "-s", "--"]
 CMD ["xvfb-run", "-a", "node", "src/index.js"]

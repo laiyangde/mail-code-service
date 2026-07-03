@@ -66,14 +66,16 @@ export class SwpuHttpClient {
    * @param {{ maxRetries?: number }} [opts] 加后缀重试上限（默认 10）
    * @returns {Promise<import('../email-provider.js').SetAliasResult>}
    */
-  async setAlias(newAlias, { maxRetries = 10 } = {}) {
+  async setAlias(newAlias, { maxRetries = 10, exact = false } = {}) {
     // action=mod 需要 old：取当前别名作为被改对象
     const old = await this.getCurrentAlias();
     if (!old) {
       throw new Error('未找到当前别名，无法以 action=mod 修改');
     }
 
-    for (let retry = 0; retry <= maxRetries; retry++) {
+    // exact=true（自用指定别名）：不加后缀，冲突即返回 {ok:false,conflict:true}，由上层报 ALIAS_TAKEN
+    const retries = exact ? 0 : maxRetries;
+    for (let retry = 0; retry <= retries; retry++) {
       const finalAlias = retry === 0 ? newAlias : `${newAlias}${retry}`;
       const body = new URLSearchParams({ action: 'mod', old, alias: finalAlias }).toString();
       const data = await this._request((session) => ({
@@ -89,13 +91,15 @@ export class SwpuHttpClient {
       }
 
       const errMsg = data.errmsg || data.errMsg || '';
-      // 冲突 → 加后缀重试；其它错误直接抛
+      // 冲突：exact 直接返回冲突；否则加后缀重试
       if (errMsg.includes('已经存在') || errMsg.includes('already exists')) {
+        if (exact) return { ok: false, conflict: true, finalAlias: newAlias };
         logger.warn({ accountId: this.session.accountId, finalAlias }, '别名冲突，加后缀重试');
         continue;
       }
       throw new Error(`设置别名失败：${errMsg || JSON.stringify(data)}`);
     }
+    if (exact) return { ok: false, conflict: true, finalAlias: newAlias };
     throw new Error(`设置别名失败：加后缀重试 ${maxRetries} 次仍冲突`);
   }
 }

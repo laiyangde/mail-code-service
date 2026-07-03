@@ -18,6 +18,8 @@ const STATUS_BY_CODE = Object.freeze({
   [ErrorCode.LEASE_NOT_TERMINAL]: 409,
   [ErrorCode.RENEW_LIMIT]: 409,
   [ErrorCode.POOL_BUSY]: 503,
+  [ErrorCode.RECEIVER_UNAVAILABLE]: 503, // 收码通道暂不可用（按需连接失败），可重试
+  [ErrorCode.ALIAS_TAKEN]: 409, // 自定义别名已被占用
 });
 
 /**

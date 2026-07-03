@@ -70,6 +70,7 @@
  * @typedef {Object} SetAliasResult
  * @property {boolean} ok 是否成功
  * @property {string} finalAlias 最终生效别名（冲突自动加后缀后的实际值）
+ * @property {boolean} [conflict] exact 模式下别名已被占用（自用 API 指定别名冲突）
  */
 
 /**
@@ -89,7 +90,7 @@
  * @property {(probe: unknown) => boolean} isSessionValid 失效信号判定（因校而异）
  * @property {() => Promise<Session>} ensureSession single-flight：有效则复用，失效则 login()
  * @property {() => Promise<string>} getCurrentAlias 获取当前别名
- * @property {(newAlias: string) => Promise<SetAliasResult>} setAlias 设置别名（冲突自动加后缀）
+ * @property {(newAlias: string, opts?: {exact?: boolean}) => Promise<SetAliasResult>} setAlias 设置别名（默认冲突自动加后缀；exact=true 精确别名，冲突即返回 {ok:false,conflict:true}）
  * @property {(match: MailMatch, onMail: (mail: MailMeta) => void) => Unsubscribe} subscribeMail 常驻订阅：命中邮件主动回调整封邮件
  * @property {(criteria?: object) => Promise<CleanupResult>} cleanup 删信（IMAP 或网页，因校而异）
  */

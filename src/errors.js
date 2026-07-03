@@ -14,6 +14,7 @@ export const ErrorCode = Object.freeze({
   LEASE_NOT_FOUND: 'LEASE_NOT_FOUND', // 租约不存在
   LEASE_NOT_TERMINAL: 'LEASE_NOT_TERMINAL', // 当前租约非终态（不能 renew）
   RENEW_LIMIT: 'RENEW_LIMIT', // 超过最大重申请次数
+  ALIAS_TAKEN: 'ALIAS_TAKEN', // 自定义别名已被占用（自用 API 指定别名冲突，FR-7）
 });
 
 /**

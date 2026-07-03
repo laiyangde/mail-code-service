@@ -105,7 +105,7 @@ export class LeaseManager {
    * @param {{ renews?: number }} [opts]
    * @returns {Promise<{status:'active', lease:object} | {status:'pending', lease:object} | {status:'used', results:object[], retainUntil:number}>}
    */
-  async createLease(accessCode, { renews = 0 } = {}) {
+  async createLease(accessCode, { renews = 0, alias = null } = {}) {
     return this.lock.runExclusive(accessCode, async () => {
       // 1. 复用已有活跃租约（路径 A：同码并发只一个 active）
       const existing = await this.exec.submit(() => this.store.lease.getActiveByCode(accessCode));
@@ -125,7 +125,13 @@ export class LeaseManager {
       // 3. 取账号：原子 acquire。有空闲 → 直接激活
       const account = await this.pool.acquire(plan.allowedGroups);
       if (account) {
-        const lease = await this._activateWithAccount({ accessCode, plan, account, renews });
+        const lease = await this._activateWithAccount({
+          accessCode,
+          plan,
+          account,
+          renews,
+          requestedAlias: alias,
+        });
         return { status: 'active', lease };
       }
 
@@ -152,6 +158,7 @@ export class LeaseManager {
         accessCode,
         groups: plan.allowedGroups,
         enqueuedAt: lease.createdAt,
+        requestedAlias: alias,
       });
       // 兜底：超 queueTimeout 仍未轮到 → rejected（产品不设硬超时，此为防泄漏）
       this.timer.arm(lease.id, this.queueTimeoutMs, () => this._onQueueTimeout(lease.id));
@@ -167,19 +174,38 @@ export class LeaseManager {
    * @param {{ accessCode:string, plan:object, account:object, renews?:number, pendingLeaseId?:string|null }} args
    * @returns {Promise<object>} active 租约
    */
-  async _activateWithAccount({ accessCode, plan, account, renews = 0, pendingLeaseId = null }) {
+  async _activateWithAccount({
+    accessCode,
+    plan,
+    account,
+    renews = 0,
+    pendingLeaseId = null,
+    requestedAlias = null,
+  }) {
     const provider = this.pool.getProvider(account.id);
     const since = nowSec();
 
-    // 1. setAlias（I/O，执行器外，不阻塞其它账号）
+    // 1. setAlias（I/O，执行器外，不阻塞其它账号）。自用指定别名 → 精确设置（冲突报 ALIAS_TAKEN，不加后缀）；
+    //    否则按顺序游标生成拟真姓名式别名。
     let setResult;
     try {
-      // 顺序游标由 store 原子推进（同步单连接，无 TOCTOU）；据此生成拟真姓名式别名
-      const cursor = this.store.aliasIndex.advance();
-      setResult = await provider.setAlias(generateAlias(provider.capabilities().aliasRule, cursor));
+      if (requestedAlias) {
+        setResult = await provider.setAlias(requestedAlias, { exact: true });
+      } else {
+        // 顺序游标由 store 原子推进（同步单连接，无 TOCTOU）；据此生成拟真姓名式别名
+        const cursor = this.store.aliasIndex.advance();
+        setResult = await provider.setAlias(
+          generateAlias(provider.capabilities().aliasRule, cursor),
+        );
+      }
     } catch (err) {
       await this.exec.submit(() => this._abortActivation(account.id, pendingLeaseId, accessCode));
       throw err;
+    }
+    if (setResult?.conflict) {
+      // 指定别名已被占用：回滚本次申请并报 ALIAS_TAKEN（自用 exact 模式）
+      await this.exec.submit(() => this._abortActivation(account.id, pendingLeaseId, accessCode));
+      throw new ApiError(ErrorCode.ALIAS_TAKEN, '指定的别名已被占用，请换一个');
     }
     if (!setResult?.ok) {
       await this.exec.submit(() => this._abortActivation(account.id, pendingLeaseId, accessCode));
@@ -255,7 +281,7 @@ export class LeaseManager {
    * @param {string} accountId 已预占（leased）的账号
    */
   async _promotePending(entry, accountId) {
-    const { leaseId, accessCode } = entry;
+    const { leaseId, accessCode, requestedAlias } = entry;
     try {
       await this.lock.runExclusive(accessCode, async () => {
         const lease = await this.exec.submit(() => this.store.lease.getById(leaseId));
@@ -266,7 +292,13 @@ export class LeaseManager {
         }
         const account = await this.exec.submit(() => this.store.account.getById(accountId));
         const plan = this.store.plan.getByPrefix(lease.plan);
-        await this._activateWithAccount({ accessCode, plan, account, pendingLeaseId: leaseId });
+        await this._activateWithAccount({
+          accessCode,
+          plan,
+          account,
+          pendingLeaseId: leaseId,
+          requestedAlias,
+        });
       });
     } catch (err) {
       // _activateWithAccount 内部已对 setAlias/bind 失败原子回滚（释放账号、pending→终态、码退 unused）；

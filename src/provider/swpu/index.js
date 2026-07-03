@@ -69,7 +69,7 @@ export function createSwpuProvider({
 
     // ── 别名（HTTP）──
     getCurrentAlias: () => http.getCurrentAlias(),
-    setAlias: (newAlias) => http.setAlias(newAlias),
+    setAlias: (newAlias, opts) => http.setAlias(newAlias, opts),
 
     // ── 收码（常驻 IMAP 订阅）──
     subscribeMail: (match, onMail) => imap.subscribeMail(match, onMail),

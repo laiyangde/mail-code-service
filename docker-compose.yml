@@ -16,6 +16,8 @@ services:
       - .env
     volumes:
       - mcs-data:/app/data # SQLite + 会话缓存，勿留容器可写层
+      # cloakbrowser Chromium（宿主机预置，仅登录偶发使用）；缺失不影响 HTTPS/前端/API 启动
+      - /opt/mcs-cloak/cache:/opt/cloakbrowser
     healthcheck:
       test:
         - CMD

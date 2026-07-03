@@ -12,10 +12,17 @@ export class MemoryWaitQueue {
 
   /**
    * 入队一个 pending 租约（createLease 池满时调用）。
-   * @param {{ leaseId:string, accessCode:string, groups:string[], enqueuedAt:number }} entry
+   * @param {{ leaseId:string, accessCode:string, groups:string[], enqueuedAt:number, requestedAlias?:string|null }} entry
+   *   requestedAlias：自用 API 指定的别名（本地部分），promote 时精确设置（冲突则 rejected）
    */
-  enqueue({ leaseId, accessCode, groups, enqueuedAt }) {
-    this.#entries.push({ leaseId, accessCode, groups: new Set(groups), enqueuedAt });
+  enqueue({ leaseId, accessCode, groups, enqueuedAt, requestedAlias = null }) {
+    this.#entries.push({
+      leaseId,
+      accessCode,
+      groups: new Set(groups),
+      enqueuedAt,
+      requestedAlias,
+    });
   }
 
   /**
